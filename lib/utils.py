@@ -1,5 +1,4 @@
 import boto3
-
 from config import CONFIG
 
 
@@ -13,12 +12,15 @@ def get_enabled_regions(session: boto3.session.Session) -> list:
 
     # Get a list of available regions
     ec2 = session.client('ec2', region_name='us-east-1')
-    response = ec2.describe_regions(
-        Filters=[
-            {'Name': 'opt-in-status', 'Values': ['opt-in-not-required', 'opted-in']}
-        ]
-    )
-    return [region.get('RegionName') for region in response.get('Regions')]
+
+    return [
+        region['RegionName']
+        for region in ec2.describe_regions(
+            Filters=[
+                {'Name': 'opt-in-status', 'Values': ['opt-in-not-required', 'opted-in']}
+            ]
+        )['Regions']
+    ]
 
 
 def boto3_tag_list_to_dict(tags_list: list) -> dict:
@@ -27,8 +29,8 @@ def boto3_tag_list_to_dict(tags_list: list) -> dict:
 
 def paginate_and_search(client, method, **kwargs):
     search_path = kwargs.pop('SearchPath')
-    paginator = client.get_paginator(method)
-    return paginator.paginate(**kwargs).search(search_path)
+
+    return client.get_paginator(method).paginate(**kwargs).search(search_path)
 
 
 def check_delete(tags: dict):
