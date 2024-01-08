@@ -12,12 +12,16 @@ def parse_args() -> None:  # sourcery skip: extract-duplicate-method
         version='%(prog)s 1.0',
         help="Show program's version number and exit.",
     )
+
+    # NB: Any Global Argument needs to be added to the main_parser later
     global_parser.add_argument('--profile', help='AWS SSO Profile')
     global_parser.add_argument(
         '--list-resource-types',
         action='store_true',
         help='List Supported Resource Types',
     )
+
+    global_args, _ = global_parser.parse_known_args()
 
     main_parser = argparse.ArgumentParser(parents=[global_parser])
     subparsers = main_parser.add_subparsers(dest='command', required=False)
@@ -81,6 +85,10 @@ def parse_args() -> None:  # sourcery skip: extract-duplicate-method
     )
 
     args = main_parser.parse_args()
+
+    # Add Global Arguments here
+    args.profile = global_args.profile
+    args.list_resource_types = global_args.list_resource_types
 
     if not args.command and not args.list_resource_types:
         main_parser.print_help()
