@@ -1,4 +1,5 @@
 import boto3
+
 from config import CONFIG
 
 
@@ -37,5 +38,6 @@ def check_delete(tags: dict):
     if not CONFIG['ALLOW_EXCEPTIONS']:
         return True
 
-    if tags.get(CONFIG['EXCEPTION_TAG'], 'false').lower() != 'true':
-        return True
+    return not any(
+        tag in tags and tags[tag].lower() == 'true' for tag in CONFIG['EXCEPTION_TAGS']
+    )
