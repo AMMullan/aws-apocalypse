@@ -206,3 +206,30 @@ def remove_ec2_volumes(session, region) -> list[str]:
             )
 
     return removed_items
+
+
+@register_resource('EC2::LaunchTemplate')
+def remove_launch_templates(session, region) -> list[str]:
+    account_id = get_account_id(session)
+    ec2 = session.client('ec2', region_name=region)
+    removed_items = []
+
+    templates = list(
+        paginate_and_search(
+            ec2,
+            'describe_launch_templates',
+            PaginationConfig={'PageSize': 200},
+            SearchPath='LaunchTemplates[].[LaunchTemplateId,LaunchTemplateName,Tags]',
+        )
+    )
+
+    for template_id, template_name, template_tags in templates:
+        if check_delete(boto3_tag_list_to_dict(template_tags)):
+            if not CONFIG['LIST_ONLY']:
+                ec2.delete_launch_template(LaunchTemplateName=template_name)
+
+            removed_items.append(
+                f'arn:aws:ec2:{region}:{account_id}:launch-template/{template_id}'
+            )
+
+    return removed_items
