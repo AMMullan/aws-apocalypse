@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 
 from config import CONFIG
 
@@ -101,9 +102,10 @@ def parse_args() -> None:  # sourcery skip: extract-duplicate-method
         case 'aws':
             CONFIG['LIST_ONLY'] = False
 
-    CONFIG['ALLOW_EXCEPTIONS'] = args.allow_exceptions
-    CONFIG['EXCEPTION_TAGS'] = list(
-        set(CONFIG['EXCEPTION_TAGS']) | set(args.exception_tag or [])
-    )
+    with contextlib.suppress(AttributeError):
+        CONFIG['ALLOW_EXCEPTIONS'] = args.allow_exceptions
+        CONFIG['EXCEPTION_TAGS'] = list(
+            set(CONFIG['EXCEPTION_TAGS']) | set(args.exception_tag or [])
+        )
 
     return args
