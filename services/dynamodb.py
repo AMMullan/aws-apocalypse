@@ -12,7 +12,7 @@ def remove_ddb_tables(session, region) -> list[str]:
         paginate_and_search(
             ddb,
             'list_tables',
-            PaginationConfig={'PageSize': 500},
+            PaginationConfig={'PageSize': 100},
             SearchPath='TableNames[]',
         )
     )
