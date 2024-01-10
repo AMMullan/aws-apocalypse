@@ -30,7 +30,7 @@ def main(args: argparse.Namespace) -> None:
 
     # Listing Resource Types
     if args.list_resource_types:
-        for service in registry.keys():
+        for service in sorted(registry.keys()):
             print(f'• {service}')
         raise SystemExit
 
