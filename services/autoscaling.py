@@ -27,3 +27,28 @@ def remove_autoscaling_groups(session, region) -> list[str]:
             removed_resources.append(group_arn)
 
     return removed_resources
+
+
+@register_resource('AutoScaling::LaunchConfiguration')
+def remove_autoscaling_launch_configs(session, region) -> list[str]:
+    autoscaling = session.client('autoscaling', region_name=region)
+    removed_resources = []
+
+    launch_congigs = list(
+        paginate_and_search(
+            autoscaling,
+            'describe_launch_configurations',
+            PaginationConfig={'PageSize': 100},
+            SearchPath='LaunchConfigurations[].LaunchConfigurationARN',
+        )
+    )
+
+    for config_arn in launch_congigs:
+        config_name = config_arn.split('/')[-1]
+
+        if not CONFIG['LIST_ONLY']:
+            autoscaling.delete_launch_configuration(LaunchConfigurationName=config_name)
+
+        removed_resources.append(config_arn)
+
+    return removed_resources
