@@ -25,7 +25,15 @@ def get_enabled_regions(session: boto3.session.Session) -> list:
 
 
 def boto3_tag_list_to_dict(tags_list: list) -> dict:
-    return {tag['Key'].lower(): tag['Value'] for tag in tags_list} if tags_list else {}
+    return (
+        {
+            tag.get("key"): tag.get("value")
+            for tag in ({k.lower(): v for k, v in tag.items()} for tag in tags_list)
+            if "key" in tag
+        }
+        if tags_list
+        else {}
+    )
 
 
 def paginate_and_search(client, method, **kwargs):
