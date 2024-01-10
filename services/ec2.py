@@ -71,7 +71,9 @@ def remove_ec2_instances(session, region) -> list[str]:
             )
 
             ec2.terminate_instances(InstanceIds=[instance_id])
-            ec2.get_waiter('instance_terminated').wait(InstanceIds=[instance_id])
+            ec2.get_waiter('instance_terminated').wait(
+                InstanceIds=[instance_id], WaiterConfig={'Delay': 10}
+            )
 
         removed_resources.append(
             f'arn:aws:ec2:{region}:{account_id}:instance/{instance_id}'
