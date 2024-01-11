@@ -43,17 +43,25 @@ def parse_args() -> None:  # sourcery skip: extract-duplicate-method
         '--resource',
         help='Search Resources for a Specific AWS Service',
         action='append',
+        default=[],
     )
     command_aws.add_argument(
-        '--service', help='Search Search Specific AWS Service', action='append'
+        '--service',
+        help='Search Search Specific AWS Service',
+        action='append',
+        default=[],
     )
     command_aws.add_argument(
         '--exclude-resource',
         help='Exclude Resources for a Specific AWS Service',
         action='append',
+        default=[],
     )
     command_aws.add_argument(
-        '--exclude-service', help='Exclude Specific AWS Service', action='append'
+        '--exclude-service',
+        help='Exclude Specific AWS Service',
+        action='append',
+        default=[],
     )
 
     # Arguments for 'inspect-aws' command
@@ -71,18 +79,28 @@ def parse_args() -> None:  # sourcery skip: extract-duplicate-method
     command_inspect.add_argument('--region', help='AWS Region', action='append')
     command_inspect.add_argument('--exclude-region', help='AWS Region', action='append')
     command_inspect.add_argument(
-        '--resource', help='Resources for a Specific AWS Service', action='append'
+        '--resource',
+        help='Resources for a Specific AWS Service',
+        action='append',
+        default=[],
     )
     command_inspect.add_argument(
-        '--service', help='Specific AWS Service', action='append'
+        '--service',
+        help='Specific AWS Service',
+        action='append',
+        default=[],
     )
     command_inspect.add_argument(
         '--exclude-resource',
         help='Exclude Resources for a Specific AWS Service',
         action='append',
+        default=[],
     )
     command_inspect.add_argument(
-        '--exclude-service', help='Exclude Specific AWS Service', action='append'
+        '--exclude-service',
+        help='Exclude Specific AWS Service',
+        action='append',
+        default=[],
     )
 
     args = main_parser.parse_args()
