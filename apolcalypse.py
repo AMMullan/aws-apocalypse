@@ -59,16 +59,36 @@ def main(args: argparse.Namespace) -> None:
     if WHITELIST_ACCOUNTS and account_id not in WHITELIST_ACCOUNTS:
         raise SystemError('Can Only Operate On A Whitelisted Account')
 
+    # Check requested service(s) exist, otherwise raise a warning
+    for service in list(set(args.service) | set(args.exclude_service)):
+        if service.lower() not in [
+            svc.split(':')[0].lower() for svc in registry.keys()
+        ]:
+            print(f'WARNING: Unsupported Service: {service}')
+
+    # Check requested resource(s) exist, otherwise raise a warning
+    for resource in list(set(args.resource) | set(args.exclude_resource)):
+        if resource not in registry.keys():
+            print(f'WARNING: Unsupported Resource: {resource}')
+
     for resource_type, delete_function in registry.items():
         service = resource_type.split(':')[0].lower()
+
+        # If user specifies specific service(s), check if we should continue
         if args.service and service not in [svc.lower() for svc in args.service]:
             continue
+
+        # If user specifies specific resource(s), check if we should continue
         if args.resource and resource_type not in args.resource:
             continue
+
+        # If user specifies specific service(s) to be exempt, check if we should continue
         if args.exclude_service and service in [
             svc.lower() for svc in args.exclude_service
         ]:
             continue
+
+        # If user specifies specific resource(s) to be exempt, check if we should continue
         if args.exclude_resource and resource_type in args.exclude_resource:
             continue
 
