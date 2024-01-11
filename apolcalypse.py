@@ -3,10 +3,7 @@ import argparse
 import boto3
 import botocore
 
-from config import (
-    BLACKLIST_ACCOUNTS,
-    WHITELIST_ACCOUNTS,
-)
+from config import BLACKLIST_ACCOUNTS, GLOBAL_RESOURCES, WHITELIST_ACCOUNTS
 from config.cli_args import parse_args
 from lib.utils import get_enabled_regions
 from registry import load_resources, registry
@@ -42,6 +39,7 @@ def main(args: argparse.Namespace) -> None:
         raise SystemError(f'Profile "{args.profile}" Not Found.') from e
 
     enabled_regions = get_enabled_regions(session)
+    enabled_regions.append('global')
     regions = (
         validate_regions(args.region, enabled_regions)
         if args.region
@@ -75,6 +73,9 @@ def main(args: argparse.Namespace) -> None:
             continue
 
         for region in regions:
+            if region == 'global' and resource_type not in GLOBAL_RESOURCES:
+                continue
+
             results = delete_function(session, region)
             print(resource_type, results)
 

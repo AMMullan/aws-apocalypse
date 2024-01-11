@@ -9,3 +9,13 @@ BLACKLIST_ACCOUNTS = []
 
 # Script will ONLY operate in these accounts
 WHITELIST_ACCOUNTS = []
+
+# Resources that work in the "global" region
+GLOBAL_RESOURCES = [
+    'CloudWatch::Dashboard',
+    'IAM::User',
+    'IAM::Role',
+    'IAM::Group',
+    'IAM::Policy',
+    'IAM::InstanceProfile',
+]
