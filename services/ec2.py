@@ -235,3 +235,100 @@ def remove_launch_templates(session, region) -> list[str]:
             )
 
     return removed_items
+
+
+@register_resource('EC2::VPC')
+def remove_ec2_vpcs(session, region) -> list[str]:
+    account_id = get_account_id(session)
+    ec2 = session.resource('ec2', region_name=region)
+    ec2_c = session.client('ec2', region_name=region)
+    removed_items = []
+
+    for vpc in ec2.vpcs.all():
+        vpc_id = vpc.id
+        vpc_tags = boto3_tag_list_to_dict(vpc.tags)
+
+        if not check_delete(vpc_tags):
+            continue
+
+        if not CONFIG['LIST_ONLY']:
+            # Delete NAT Gateways
+            gateways = []
+            eip_allocations = []
+            for gateway in ec2_c.describe_nat_gateways(
+                Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}]
+            )['NatGateways']:
+                if gateway['State'] == 'deleted':
+                    continue
+
+                gateways.append(gateway['NatGatewayId'])
+                eip_allocations.extend(
+                    address['AllocationId']
+                    for address in gateway['NatGatewayAddresses']
+                )
+
+            for gateway_id in gateways:
+                ec2_c.delete_nat_gateway(NatGatewayId=gateway_id)
+
+            # Wait for NAT Gateways to be removed
+            ec2_c.get_waiter('nat_gateway_deleted').wait(NatGatewayIds=gateways)
+
+            for eip_allocation in eip_allocations:
+                ec2_c.release_address(AllocationId=eip_allocation)
+
+            # Delete VPC Endpoints
+            endpoints = [
+                endpoint['VpcEndpointId']
+                for endpoint in ec2_c.describe_vpc_endpoints(
+                    Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}]
+                )['VpcEndpoints']
+            ]
+            ec2_c.delete_vpc_endpoints(VpcEndpointIds=endpoints)
+
+            for subnet in vpc.subnets.all():
+                subnet.delete()
+
+            for pcx in vpc.accepted_vpc_peering_connections.all():
+                pcx.delete()
+
+            for pcx in vpc.requested_vpc_peering_connections.all():
+                pcx.delete()
+
+            for igw in vpc.internet_gateways.all():
+                igw.detach_from_vpc(VpcId=vpc_id)
+                igw.delete()
+
+            for acl in vpc.network_acls.all():
+                if not acl.is_default:
+                    acl.delete()
+
+            for route_table in vpc.route_tables.all():
+                main = any(
+                    association['Main']
+                    for association in route_table.associations_attribute
+                )
+                if not main:
+                    route_table.delete()
+
+            vpc.delete()
+
+        removed_items.append(f'arn:aws:ec2:{region}:{account_id}:vpc/{vpc_id}')
+
+    return removed_items
+
+
+@register_resource('EC2::DHCPOptions')
+def remove_ec2_dhcp_options(session, region) -> list[str]:
+    account_id = get_account_id(session)
+    ec2 = session.resource('ec2', region_name=region)
+    removed_items = []
+
+    for options in ec2.dhcp_options_sets.all():
+        options_id = options.id
+
+        if not CONFIG['LIST_ONLY']:
+            options.delete()
+
+        removed_items.append(f'arn:aws:ec2:{region}:{account_id}:vpc/{options_id}')
+
+    return removed_items
