@@ -25,6 +25,10 @@ def get_enabled_regions(session: boto3.session.Session) -> list:
 
 
 def boto3_tag_list_to_dict(tags_list: list) -> dict:
+    # Check if the list contains KMS tags
+    if tags_list and any('TagKey' in tag for tag in tags_list):
+        return {tag.get("TagKey"): tag.get("TagValue") for tag in tags_list}
+
     return (
         {
             tag.get("key"): tag.get("value")
