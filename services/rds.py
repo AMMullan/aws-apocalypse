@@ -6,7 +6,7 @@ from registry.decorator import register_resource
 @register_resource('RDS::Instance')
 def remove_rds_instances(session, region) -> list[str]:
     rds = session.client('rds', region_name=region)
-    removed_items = []
+    removed_resources = []
 
     instances = list(
         paginate_and_search(
@@ -29,15 +29,15 @@ def remove_rds_instances(session, region) -> list[str]:
                     DBInstanceIdentifier=instance_id
                 )
 
-            removed_items.append(instance_arn)
+            removed_resources.append(instance_arn)
 
-    return removed_items
+    return removed_resources
 
 
 @register_resource('RDS::Cluster')
 def remove_rds_clusters(session, region) -> list[str]:
     rds = session.client('rds', region_name=region)
-    removed_items = []
+    removed_resources = []
 
     cluster = list(
         paginate_and_search(
@@ -60,6 +60,6 @@ def remove_rds_clusters(session, region) -> list[str]:
                     DBClusterIdentifier=cluster_id, WaiterConfig={'Delay': 10}
                 )
 
-            removed_items.append(cluster_arn)
+            removed_resources.append(cluster_arn)
 
-    return removed_items
+    return removed_resources

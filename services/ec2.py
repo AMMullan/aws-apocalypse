@@ -158,7 +158,7 @@ def remove_ec2_security_groups(session, region) -> list[str]:
 def remove_ec2_snapshots(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
-    removed_items = []
+    removed_resources = []
 
     snapshots = list(
         paginate_and_search(
@@ -175,18 +175,18 @@ def remove_ec2_snapshots(session, region) -> list[str]:
             if not CONFIG['LIST_ONLY']:
                 ec2.delete_snapshot(SnapshotId=snapshot_id)
 
-            removed_items.append(
+            removed_resources.append(
                 f'arn:aws:ec2:{region}:{account_id}:snapshot/{snapshot_id}'
             )
 
-    return removed_items
+    return removed_resources
 
 
 @register_resource("EC2::Volume")
 def remove_ec2_volumes(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
-    removed_items = []
+    removed_resources = []
 
     volumes = list(
         paginate_and_search(
@@ -203,18 +203,18 @@ def remove_ec2_volumes(session, region) -> list[str]:
             if not CONFIG['LIST_ONLY']:
                 ec2.delete_volume(VolumeId=volume_id)
 
-            removed_items.append(
+            removed_resources.append(
                 f'arn:aws:ec2:{region}:{account_id}:volume/{volume_id}'
             )
 
-    return removed_items
+    return removed_resources
 
 
 @register_resource('EC2::LaunchTemplate')
 def remove_launch_templates(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
-    removed_items = []
+    removed_resources = []
 
     templates = list(
         paginate_and_search(
@@ -230,11 +230,11 @@ def remove_launch_templates(session, region) -> list[str]:
             if not CONFIG['LIST_ONLY']:
                 ec2.delete_launch_template(LaunchTemplateName=template_name)
 
-            removed_items.append(
+            removed_resources.append(
                 f'arn:aws:ec2:{region}:{account_id}:launch-template/{template_id}'
             )
 
-    return removed_items
+    return removed_resources
 
 
 @register_resource('EC2::VPC')
@@ -242,7 +242,7 @@ def remove_ec2_vpcs(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.resource('ec2', region_name=region)
     ec2_c = session.client('ec2', region_name=region)
-    removed_items = []
+    removed_resources = []
 
     for vpc in ec2.vpcs.all():
         vpc_id = vpc.id
@@ -312,16 +312,16 @@ def remove_ec2_vpcs(session, region) -> list[str]:
 
             vpc.delete()
 
-        removed_items.append(f'arn:aws:ec2:{region}:{account_id}:vpc/{vpc_id}')
+        removed_resources.append(f'arn:aws:ec2:{region}:{account_id}:vpc/{vpc_id}')
 
-    return removed_items
+    return removed_resources
 
 
 @register_resource('EC2::DHCPOptions')
 def remove_ec2_dhcp_options(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.resource('ec2', region_name=region)
-    removed_items = []
+    removed_resources = []
 
     for options in ec2.dhcp_options_sets.all():
         options_id = options.id
@@ -329,6 +329,6 @@ def remove_ec2_dhcp_options(session, region) -> list[str]:
         if not CONFIG['LIST_ONLY']:
             options.delete()
 
-        removed_items.append(f'arn:aws:ec2:{region}:{account_id}:vpc/{options_id}')
+        removed_resources.append(f'arn:aws:ec2:{region}:{account_id}:vpc/{options_id}')
 
-    return removed_items
+    return removed_resources

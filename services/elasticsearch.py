@@ -6,7 +6,7 @@ from registry.decorator import register_resource
 @register_resource('Elasticsearch::Domain')
 def remove_opensearch_domains(session, region) -> list[str]:
     es = session.client('es', region_name=region)
-    removed_items = []
+    removed_resources = []
 
     domains = [
         [es_domain['ARN'], es_domain['DomainName']]
@@ -26,6 +26,6 @@ def remove_opensearch_domains(session, region) -> list[str]:
             if not CONFIG['LIST_ONLY']:
                 es.delete_elasticsearch_domain(DomainName=domain_name)
 
-            removed_items.append(domain_arn)
+            removed_resources.append(domain_arn)
 
-    return removed_items
+    return removed_resources

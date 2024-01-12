@@ -12,7 +12,7 @@ from registry.decorator import register_resource
 def remove_elb_loadbalancers(session, region) -> list[str]:
     account_id = get_account_id(session)
     elb = session.client('elb', region_name=region)
-    removed_items = []
+    removed_resources = []
 
     loadbalancers = list(
         paginate_and_search(
@@ -32,8 +32,8 @@ def remove_elb_loadbalancers(session, region) -> list[str]:
             if not CONFIG['LIST_ONLY']:
                 elb.delete_load_balancer(LoadBalancerName=lb_name)
 
-            removed_items.append(
+            removed_resources.append(
                 f'arn:aws:elasticloadbalancing:{region}:{account_id}:loadbalancer/{lb_name}'
             )
 
-    return removed_items
+    return removed_resources

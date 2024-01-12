@@ -6,7 +6,7 @@ from registry.decorator import register_resource
 @register_resource('ElasticLoadBalancingV2::LoadBalancer')
 def remove_elbv2_loadbalancers(session, region) -> list[str]:
     elb = session.client('elbv2', region_name=region)
-    removed_items = []
+    removed_resources = []
 
     loadbalancers = list(
         paginate_and_search(
@@ -24,15 +24,15 @@ def remove_elbv2_loadbalancers(session, region) -> list[str]:
             if not CONFIG['LIST_ONLY']:
                 elb.delete_load_balancer(LoadBalancerArn=lb_arn)
 
-            removed_items.append(lb_arn)
+            removed_resources.append(lb_arn)
 
-    return removed_items
+    return removed_resources
 
 
 @register_resource('ElasticLoadBalancingV2::TargetGroup')
 def remove_elbv2_targetgroups(session, region) -> list[str]:
     elb = session.client('elbv2', region_name=region)
-    removed_items = []
+    removed_resources = []
 
     groups = list(
         paginate_and_search(
@@ -50,6 +50,6 @@ def remove_elbv2_targetgroups(session, region) -> list[str]:
             if not CONFIG['LIST_ONLY']:
                 elb.delete_target_group(TargetGroupArn=group_arn)
 
-            removed_items.append(group_arn)
+            removed_resources.append(group_arn)
 
-    return removed_items
+    return removed_resources
