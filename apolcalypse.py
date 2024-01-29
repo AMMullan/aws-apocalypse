@@ -16,7 +16,6 @@ from view.output_handlers import JSONOutputHandler, OutputHandler, RichOutputHan
 # - Ensure that when an EC2 Instance is removed that it removes the volumes
 # - Do we need to batch up the terminate_instance API calls ??
 # - Remove snapshots after an AMI is removed
-# - FIXME: DocDB, RDS and Neptune ALL returning ALL resources
 
 
 def validate_regions(requested_regions: list, enabled_regions: list) -> list:
