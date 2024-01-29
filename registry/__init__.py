@@ -3,7 +3,8 @@ from importlib import import_module
 from pathlib import Path
 from typing import Callable
 
-registry: dict[str, Callable[..., None]] = {}
+query_registry: dict[str, Callable[..., None]] = {}
+terminate_registry: dict[str, Callable[..., None]] = {}
 
 
 def load_resources():

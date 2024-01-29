@@ -1,12 +1,11 @@
-from config import CONFIG
 from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('SNS::Topic')
-def remove_sns_topics(session, region) -> list[str]:
+@register_query_function('SNS::Topic')
+def query_sns_topics(session, region) -> list[str]:
     sns = session.client('sns', region_name=region)
-    removed_resources = []
+    resource_arns = []
 
     topics = list(
         paginate_and_search(
@@ -20,9 +19,14 @@ def remove_sns_topics(session, region) -> list[str]:
         topic_tags = sns.list_tags_for_resource(ResourceArn=topic_arn)['Tags']
 
         if check_delete(boto3_tag_list_to_dict(topic_tags)):
-            if not CONFIG['LIST_ONLY']:
-                sns.delete_topic(TopicArn=topic_arn)
+            resource_arns.append(topic_arn)
 
-            removed_resources.append(topic_arn)
+    return resource_arns
 
-    return removed_resources
+
+@register_terminate_function('SNS::Topic')
+def remove_sns_topics(session, region, resource_arns: list[str]) -> None:
+    sns = session.client('sns', region_name=region)
+
+    for topic_arn in resource_arns:
+        sns.delete_topic(TopicArn=topic_arn)

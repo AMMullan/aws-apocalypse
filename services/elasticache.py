@@ -1,12 +1,11 @@
-from config import CONFIG
 from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('ElastiCache::CacheCluster')
-def remove_elasticache_clusters(session, region) -> list[str]:
+@register_query_function('ElastiCache::CacheCluster')
+def query_elasticache_clusters(session, region) -> list[str]:
     elasticache = session.client('elasticache', region_name=region)
-    removed_resources = []
+    resource_arns = []
 
     clusters = list(
         paginate_and_search(
@@ -22,21 +21,28 @@ def remove_elasticache_clusters(session, region) -> list[str]:
                 'TagList'
             ]
         except elasticache.exceptions.CacheClusterNotFoundFault:
+            # This can happen if the script is run more than once a day
             continue
 
         if check_delete(boto3_tag_list_to_dict(cluster_tags)):
-            if not CONFIG['LIST_ONLY']:
-                elasticache.delete_cache_cluster(CacheClusterId=cluster_id)
+            resource_arns.append(cluster_arn)
 
-            removed_resources.append(cluster_arn)
-
-    return removed_resources
+    return resource_arns
 
 
-@register_resource('ElastiCache::ServerlessCache')
-def remove_elasticache_serverless_clusters(session, region) -> list[str]:
+@register_terminate_function('ElastiCache::CacheCluster')
+def remove_elasticache_clusters(session, region, resource_arns: list[str]) -> None:
     elasticache = session.client('elasticache', region_name=region)
-    removed_resources = []
+
+    for cluster_arn in resource_arns:
+        cluster_id = cluster_arn.split(':')[-1]
+        elasticache.delete_cache_cluster(CacheClusterId=cluster_id)
+
+
+@register_query_function('ElastiCache::ServerlessCache')
+def query_elasticache_serverless_clusters(session, region) -> list[str]:
+    elasticache = session.client('elasticache', region_name=region)
+    resource_arns = []
 
     clusters = list(
         paginate_and_search(
@@ -46,7 +52,7 @@ def remove_elasticache_serverless_clusters(session, region) -> list[str]:
             SearchPath='ServerlessCaches[].[ARN,ServerlessCacheName]',
         )
     )
-    for cluster_arn, cluster_name in clusters:
+    for (cluster_arn,) in clusters:
         try:
             cluster_tags = elasticache.list_tags_for_resource(ResourceName=cluster_arn)[
                 'TagList'
@@ -55,9 +61,17 @@ def remove_elasticache_serverless_clusters(session, region) -> list[str]:
             continue
 
         if check_delete(boto3_tag_list_to_dict(cluster_tags)):
-            if not CONFIG['LIST_ONLY']:
-                elasticache.delete_serverless_cache(ServerlessCacheName=cluster_name)
+            resource_arns.append(cluster_arn)
 
-            removed_resources.append(cluster_arn)
+    return resource_arns
 
-    return removed_resources
+
+@register_terminate_function('ElastiCache::ServerlessCache')
+def remove_elasticache_serverless_clusters(
+    session, region, resource_arns: list[str]
+) -> None:
+    elasticache = session.client('elasticache', region_name=region)
+
+    for cluster_arn in resource_arns:
+        cluster_name = cluster_arn.split(':')[-1]
+        elasticache.delete_serverless_cache(ServerlessCacheName=cluster_name)

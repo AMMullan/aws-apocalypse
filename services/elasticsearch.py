@@ -1,15 +1,14 @@
-from config import CONFIG
 from lib.utils import boto3_tag_list_to_dict, check_delete
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('Elasticsearch::Domain')
-def remove_opensearch_domains(session, region) -> list[str]:
+@register_query_function('Elasticsearch::Domain')
+def query_opensearch_domains(session, region) -> list[str]:
     es = session.client('es', region_name=region)
-    removed_resources = []
+    resource_arns = []
 
     domains = [
-        [es_domain['ARN'], es_domain['DomainName']]
+        es_domain['ARN']
         for es_domain in es.describe_elasticsearch_domains(
             DomainNames=[
                 domain['DomainName']
@@ -20,12 +19,18 @@ def remove_opensearch_domains(session, region) -> list[str]:
         )['DomainStatusList']
         if not es_domain['Deleted']
     ]
-    for domain_arn, domain_name in domains:
+    for domain_arn in domains:
         domain_tags = es.list_tags(ARN=domain_arn)['TagList']
         if check_delete(boto3_tag_list_to_dict(domain_tags)):
-            if not CONFIG['LIST_ONLY']:
-                es.delete_elasticsearch_domain(DomainName=domain_name)
+            resource_arns.append(domain_arn)
 
-            removed_resources.append(domain_arn)
+    return resource_arns
 
-    return removed_resources
+
+@register_terminate_function('Elasticsearch::Domain')
+def remove_opensearch_domains(session, region, resource_arns: list[str]) -> None:
+    es = session.client('es', region_name=region)
+
+    for domain_arn in resource_arns:
+        domain_name = domain_arn.split('/')
+        es.delete_elasticsearch_domain(DomainName=domain_name)

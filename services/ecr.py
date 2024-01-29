@@ -1,12 +1,11 @@
-from config import CONFIG
 from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('ECR::Repository')
-def remove_ecr_repositories(session, region) -> list[str]:
+@register_query_function('ECR::Repository')
+def query_ecr_repositories(session, region) -> list[str]:
     ecr = session.client('ecr', region_name=region)
-    removed_resources = []
+    resource_arns = []
 
     repositories = list(
         paginate_and_search(
@@ -21,9 +20,14 @@ def remove_ecr_repositories(session, region) -> list[str]:
         repo_tags = ecr.list_tags_for_resource(resourceArn=repo_arn)['tags']
 
         if check_delete(boto3_tag_list_to_dict(repo_tags)):
-            if not CONFIG['LIST_ONLY']:
-                ecr.delete_repository(repositoryArn=repo_arn, force=True)
+            resource_arns.append(repo_arn)
 
-            removed_resources.append(repo_arn)
+    return resource_arns
 
-    return removed_resources
+
+@register_terminate_function('ECR::Repository')
+def remove_ecr_repositories(session, region, resource_arns: list[str]) -> None:
+    ecr = session.client('ecr', region_name=region)
+
+    for repo_arn in resource_arns:
+        ecr.delete_repository(repositoryArn=repo_arn, force=True)

@@ -1,6 +1,5 @@
-from config import CONFIG
 from lib.utils import boto3_tag_list_to_dict, check_delete
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
 def get_bucket_region(s3, bucket_name):
@@ -9,11 +8,11 @@ def get_bucket_region(s3, bucket_name):
     ]
 
 
-@register_resource('S3::Bucket')
-def remove_s3_buckets(session, region) -> list[str]:
+@register_query_function('S3::Bucket')
+def query_s3_buckets(session, region) -> list[str]:
     s3 = session.client('s3')
 
-    removed_resources = []
+    resource_arns = []
 
     buckets = [
         bucket
@@ -35,14 +34,19 @@ def remove_s3_buckets(session, region) -> list[str]:
                 bucket_tags = {}
             else:
                 raise
+        else:
+            if check_delete(boto3_tag_list_to_dict(bucket_tags)):
+                resource_arns.append(f'arn:aws:s3:::{bucket_name}')
 
-        if not check_delete(boto3_tag_list_to_dict(bucket_tags)):
-            continue
+    return resource_arns
 
-        if not CONFIG['LIST_ONLY']:
-            bucket.object_versions.all().delete()
-            bucket.delete()
 
-        removed_resources.append(f'arn:aws:s3:::{bucket_name}')
+@register_terminate_function('S3::Bucket')
+def remove_s3_buckets(session, region, resource_arns: list[str]) -> None:
+    s3 = session.resource('s3')
 
-    return removed_resources
+    for bucket_arns in resource_arns:
+        bucket_name = bucket_arns.split(':')[-1]
+        bucket = s3.Bucket(bucket_name)
+        bucket.object_versions.all().delete()
+        bucket.delete()

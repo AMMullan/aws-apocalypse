@@ -22,6 +22,12 @@ def parse_args() -> None:  # sourcery skip: extract-duplicate-method
         help='List Supported Resource Types',
     )
 
+    global_parser.add_argument(
+        '--output',
+        choices=['rich', 'json'],
+        default='rich',
+        help='Output Format - "rich" for Rich Formatting, or "json" to retrieve pure data',
+    )
     global_args, _ = global_parser.parse_known_args()
 
     main_parser = argparse.ArgumentParser(parents=[global_parser])

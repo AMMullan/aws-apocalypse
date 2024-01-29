@@ -1,12 +1,11 @@
-from config import CONFIG
 from lib.utils import check_delete, paginate_and_search
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('Logs::LogGroup')
-def remove_logs_loggroups(session, region) -> list[str]:
+@register_query_function('Logs::LogGroup')
+def query_logs_loggroups(session, region) -> list[str]:
     logs = session.client('logs', region_name=region)
-    removed_resources = []
+    resource_arns = []
 
     log_groups = [
         group_arn[:-2]
@@ -19,13 +18,18 @@ def remove_logs_loggroups(session, region) -> list[str]:
     ]
 
     for group_arn in log_groups:
-        group_name = group_arn.split(':')[-1]
         group_tags = logs.list_tags_for_resource(resourceArn=group_arn)['tags']
 
         if check_delete(group_tags):
-            if not CONFIG['LIST_ONLY']:
-                logs.delete_log_group(logGroupName=group_name)
+            resource_arns.append(group_arn)
 
-            removed_resources.append(group_arn)
+    return resource_arns
 
-    return removed_resources
+
+@register_terminate_function('Logs::LogGroup')
+def remove_logs_loggroups(session, region, resource_arns: list[str]) -> None:
+    logs = session.client('logs', region_name=region)
+
+    for group_arn in resource_arns:
+        group_name = group_arn.split('/')[-1]
+        logs.delete_log_group(logGroupName=group_name)
