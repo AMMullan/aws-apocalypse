@@ -1,6 +1,6 @@
 import boto3
 
-from config import CONFIG
+from config import config
 
 
 def get_account_id(session: boto3.session.Session) -> str:
@@ -47,9 +47,9 @@ def paginate_and_search(client, method, **kwargs):
 
 
 def check_delete(tags: dict):
-    if not CONFIG['ALLOW_EXCEPTIONS']:
+    if not config.ALLOW_EXCEPTIONS:
         return True
 
     return not any(
-        tag in tags and tags[tag].lower() == 'true' for tag in CONFIG['EXCEPTION_TAGS']
+        tag in tags and tags[tag].lower() == 'true' for tag in config.EXCEPTION_TAGS
     )

@@ -6,7 +6,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from config import GLOBAL_RESOURCES
+from config import config
 from registry import query_registry
 
 
@@ -33,9 +33,9 @@ class JSONOutputHandler(OutputHandler):
         for resource_type in resource_types:
             delete_function = query_registry[resource_type]
             for region in regions:
-                if (region == 'global' and resource_type not in GLOBAL_RESOURCES) or (
-                    region != 'global' and resource_type in GLOBAL_RESOURCES
-                ):
+                if (
+                    region == 'global' and resource_type not in config.GLOBAL_RESOURCES
+                ) or (region != 'global' and resource_type in config.GLOBAL_RESOURCES):
                     continue
 
                 if results := delete_function(self.session, region):
@@ -69,9 +69,9 @@ class RichOutputHandler(OutputHandler):
         for resource_type in resource_types:
             delete_function = query_registry[resource_type]
             for region in regions:
-                if (region == 'global' and resource_type not in GLOBAL_RESOURCES) or (
-                    region != 'global' and resource_type in GLOBAL_RESOURCES
-                ):
+                if (
+                    region == 'global' and resource_type not in config.GLOBAL_RESOURCES
+                ) or (region != 'global' and resource_type in config.GLOBAL_RESOURCES):
                     continue
 
                 with self.console.status(

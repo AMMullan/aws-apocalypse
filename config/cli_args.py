@@ -1,7 +1,15 @@
 import argparse
 import contextlib
+from pathlib import Path
 
-from config import CONFIG
+from config import config
+
+
+def is_valid_file(parser, arg):
+    if not Path(arg).exists():
+        parser.error(f"The configuration file '{arg}' does not exist!")
+
+    return Path(arg)
 
 
 def parse_args() -> None:  # sourcery skip: extract-duplicate-method
@@ -16,6 +24,11 @@ def parse_args() -> None:  # sourcery skip: extract-duplicate-method
 
     # NB: Any Global Argument needs to be added to the main_parser later
     global_parser.add_argument('--profile', help='AWS SSO Profile')
+    global_parser.add_argument(
+        '--config',
+        help='Configuration File',
+        type=lambda x: is_valid_file(global_parser, x),
+    )
     global_parser.add_argument(
         '--list-resource-types',
         action='store_true',
@@ -46,8 +59,8 @@ def parse_args() -> None:  # sourcery skip: extract-duplicate-method
     command_aws.add_argument('--region', help='AWS Region', action='append')
     command_aws.add_argument('--exclude-region', help='AWS Region', action='append')
     command_aws.add_argument(
-        '--resource',
-        help='Search Resources for a Specific AWS Service',
+        '--resource-type',
+        help='Included Resource Types',
         action='append',
         default=[],
     )
@@ -58,8 +71,8 @@ def parse_args() -> None:  # sourcery skip: extract-duplicate-method
         default=[],
     )
     command_aws.add_argument(
-        '--exclude-resource',
-        help='Exclude Resources for a Specific AWS Service',
+        '--exclude-resource-type',
+        help='Exclude Resource Type',
         action='append',
         default=[],
     )
@@ -85,8 +98,8 @@ def parse_args() -> None:  # sourcery skip: extract-duplicate-method
     command_inspect.add_argument('--region', help='AWS Region', action='append')
     command_inspect.add_argument('--exclude-region', help='AWS Region', action='append')
     command_inspect.add_argument(
-        '--resource',
-        help='Resources for a Specific AWS Service',
+        '--resource-type',
+        help='Included Resource Types',
         action='append',
         default=[],
     )
@@ -97,8 +110,8 @@ def parse_args() -> None:  # sourcery skip: extract-duplicate-method
         default=[],
     )
     command_inspect.add_argument(
-        '--exclude-resource',
-        help='Exclude Resources for a Specific AWS Service',
+        '--exclude-resource-type',
+        help='Exclude Resource Type',
         action='append',
         default=[],
     )
@@ -113,16 +126,40 @@ def parse_args() -> None:  # sourcery skip: extract-duplicate-method
 
     # Add Global Arguments here
     args.profile = global_args.profile
+    args.config = global_args.config
     args.list_resource_types = global_args.list_resource_types
 
     if not args.command and not args.list_resource_types:
         main_parser.print_help()
         raise SystemExit
 
+    if args.region:
+        for region in args.region:
+            config.REGIONS.add(region)
+
+    if args.exclude_region:
+        for region in args.exclude_region:
+            config.EXCLUDE_REGIONS.add(region)
+
+    if args.resource_type:
+        for resource in args.resource_type:
+            config.add_included_resource(resource)
+
+    if args.exclude_resource_type:
+        for resource in args.exclude_resource_type:
+            config.add_excluded_resource(resource)
+
+    if args.service:
+        for service in args.service:
+            config.add_included_service(service)
+
+    if args.exclude_service:
+        for service in args.exclude_service:
+            config.add_excluded_service(service)
+
     with contextlib.suppress(AttributeError):
-        CONFIG['ALLOW_EXCEPTIONS'] = args.allow_exceptions
-        CONFIG['EXCEPTION_TAGS'] = list(
-            set(CONFIG['EXCEPTION_TAGS']) | set(args.exception_tag or [])
-        )
+        config.ALLOW_EXCEPTIONS = args.allow_exceptions
+        if args.exception_tag:
+            config.add_custom_exception_tag(args.exception_tag)
 
     return args

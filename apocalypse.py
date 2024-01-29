@@ -11,8 +11,9 @@ import boto3
 import botocore
 from rich.console import Console
 
-from config import BLACKLIST_ACCOUNTS, WHITELIST_ACCOUNTS
+from config import config
 from config.cli_args import parse_args
+from config.config_file import parse_config_file
 from lib.utils import get_enabled_regions
 from registry import load_resources, query_registry, terminate_registry
 from view.output_handlers import JSONOutputHandler, OutputHandler, RichOutputHandler
@@ -40,58 +41,52 @@ def confirm_deletion():
             print("Invalid input. Please type 'yes' or 'no'.")
 
 
-def validate_regions(requested_regions: list, enabled_regions: list) -> list:
+def validate_regions(requested_regions: list | set, enabled_regions: list) -> list:
     return [region for region in requested_regions if region in enabled_regions]
 
 
-def exclude_regions(regions: list, excluded_regions: list) -> list:
+def exclude_regions(regions: list, excluded_regions: list | set) -> list:
     return [region for region in regions if region not in excluded_regions]
 
 
-def check_account_compliance(
-    account_id: str, whitelisted_accounts: list, blacklisted_accounts: list
-) -> None:
-    if account_id in blacklisted_accounts:
+def check_account_compliance(account_id: str) -> None:
+    if account_id in config.BLACKLIST_ACCOUNTS:
         raise SystemError('Cannot Operate On A Blacklisted Account')
 
-    if not whitelisted_accounts:
+    if not config.WHITELIST_ACCOUNTS:
         return
 
-    if account_id not in whitelisted_accounts:
+    if account_id not in config.WHITELIST_ACCOUNTS:
         raise SystemError('Can Only Operate On A Whitelisted Account')
 
 
-def get_resource_regions(
-    session, requested_regions: list, excluded_regions: list
-) -> list:
+def get_resource_regions(session) -> set:
     enabled_regions = get_enabled_regions(session) + ['global']
     regions = (
-        validate_regions(requested_regions, enabled_regions)
-        if requested_regions
+        validate_regions(config.REGIONS, enabled_regions)
+        if config.REGIONS
         else enabled_regions
     )
     regions = (
-        exclude_regions(regions, excluded_regions) if excluded_regions else regions
+        exclude_regions(regions, config.EXCLUDE_REGIONS)
+        if config.EXCLUDE_REGIONS
+        else regions
     )
 
-    return regions
+    return set(regions)
 
 
 def get_actionable_resource_types(
     registry_services: list,
-    include_services: list,
-    include_resources: list,
-    exclude_services: list,
-    exclude_resources: list,
 ) -> list:
     lower_registry_resource_types = {svc.lower() for svc in registry_services}
     lower_registry_services = {
         svc.split(':')[0] for svc in lower_registry_resource_types
     }
-    include_services_lower = {svc.lower() for svc in include_services}
-    exclude_services_lower = {svc.lower() for svc in exclude_services}
-    include_resources_lower = {svc.lower() for svc in include_resources}
-    exclude_resources_lower = {svc.lower() for svc in exclude_resources}
+    include_services_lower = {svc.lower() for svc in config.INCLUDE_SERVICES}
+    exclude_services_lower = {svc.lower() for svc in config.EXCLUDE_SERVICES}
+    include_resources_lower = {svc.lower() for svc in config.INCLUDE_RESOURCES}
+    exclude_resources_lower = {svc.lower() for svc in config.EXCLUDE_RESOURCES}
 
     # Check requested service(s) exist, otherwise raise a warning
     for service in include_services_lower | exclude_services_lower:
@@ -113,10 +108,13 @@ def get_actionable_resource_types(
         if resource_type.lower() in exclude_resources_lower:
             continue
 
-        if include_services and resource_service not in include_services_lower:
+        if include_services_lower and resource_service not in include_services_lower:
             continue
 
-        if include_resources and resource_type.lower() not in include_resources_lower:
+        if (
+            include_resources_lower
+            and resource_type.lower() not in include_resources_lower
+        ):
             continue
 
         actionable.append(resource_type)
@@ -132,6 +130,9 @@ def main(args: argparse.Namespace) -> None:
 
     # Load Resources from the Registry
     load_resources()
+
+    if args.config:
+        parse_config_file(args.config)
 
     # Listing Resource Types
     if args.list_resource_types:
@@ -150,21 +151,15 @@ def main(args: argparse.Namespace) -> None:
 
     # Check that we're allowed to operate in this account.
     account_id = session.client('sts').get_caller_identity()['Account']
-    check_account_compliance(account_id, WHITELIST_ACCOUNTS, BLACKLIST_ACCOUNTS)
+    check_account_compliance(account_id)
 
     # Clear the screen - TODO: Should we make this optional?
     if args.output != 'json':
         console.clear()
 
-    regions = get_resource_regions(session, args.region, args.exclude_region)
-    resource_types = get_actionable_resource_types(
-        list(query_registry.keys()),
-        args.service,
-        args.resource,
-        args.exclude_service,
-        args.exclude_resource,
-    )
+    config.REGIONS = get_resource_regions(session)
 
+    resource_types = get_actionable_resource_types(list(query_registry.keys()))
     if not resource_types:
         print("No Valid Resources")
         return
@@ -177,7 +172,7 @@ def main(args: argparse.Namespace) -> None:
         case _:
             raise ValueError('Invalid Output Method')
 
-    retrieved_resources = handler.retrieve_data(resource_types, regions)
+    retrieved_resources = handler.retrieve_data(resource_types, config.REGIONS)
     if not retrieved_resources or args.command == 'inspect-aws':
         return
 
@@ -192,4 +187,5 @@ def main(args: argparse.Namespace) -> None:
 # This will only ever trigger if the script is executed directly
 if __name__ == '__main__':
     args = parse_args()
+
     main(args)
