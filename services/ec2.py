@@ -68,11 +68,28 @@ def query_ec2_instances(session, region) -> list[str]:
 
 @register_terminate_function("EC2::Instance")
 def remove_ec2_instances(session, region, resource_arns: list[str]) -> None:
-    # TODO - Find, and remove, secondary volumes AFTER deletion
     # TODO - Do we need to batch the terminate instances ??
+    account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
 
     instance_ids = [instance_arn.split('/')[-1] for instance_arn in resource_arns]
+    retained_volume_arns = [
+        f'arn:aws:ec2:{region}:{account_id}:volume/{volume_id}'
+        for volume_id, volume_tags in paginate_and_search(
+            ec2,
+            'describe_volumes',
+            Filters=[
+                {
+                    'Name': 'attachment.instance-id',
+                    'Values': instance_ids,
+                },
+                {'Name': 'attachment.delete-on-termination', 'Values': ['false']},
+            ],
+            SearchPath='Volumes[].[VolumeId,Tags]',
+        )
+        if check_delete(boto3_tag_list_to_dict(volume_tags))
+    ]
+
     for instance_id in instance_ids:
         ec2.modify_instance_attribute(
             InstanceId=instance_id,
@@ -88,6 +105,8 @@ def remove_ec2_instances(session, region, resource_arns: list[str]) -> None:
     ec2.get_waiter('instance_terminated').wait(
         InstanceIds=instance_ids, WaiterConfig={'Delay': 10}
     )
+
+    remove_ec2_volumes(session, region, retained_volume_arns)
 
 
 @register_query_function("EC2::NetworkInterface")
