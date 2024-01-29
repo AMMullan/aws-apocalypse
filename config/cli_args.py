@@ -119,13 +119,6 @@ def parse_args() -> None:  # sourcery skip: extract-duplicate-method
         main_parser.print_help()
         raise SystemExit
 
-    command = args.command
-    match command:
-        case 'inspect-aws':
-            CONFIG['LIST_ONLY'] = True
-        case 'aws':
-            CONFIG['LIST_ONLY'] = False
-
     with contextlib.suppress(AttributeError):
         CONFIG['ALLOW_EXCEPTIONS'] = args.allow_exceptions
         CONFIG['EXCEPTION_TAGS'] = list(
