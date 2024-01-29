@@ -10,14 +10,15 @@ def query_rds_instances(session, region) -> list[str]:
             rds,
             'describe_db_instances',
             PaginationConfig={'PageSize': 100},
-            SearchPath='DBInstances[].[DBInstanceArn,TagList]',
+            SearchPath='DBInstances[].[DBInstanceArn,TagList,Engine]',
         )
     )
 
     return [
         instance_arn
-        for instance_arn, instance_tags in instances
+        for instance_arn, instance_tags, engine in instances
         if check_delete(boto3_tag_list_to_dict(instance_tags))
+        and engine not in ['neptune', 'docdb']
     ]
 
 
@@ -43,14 +44,15 @@ def query_rds_clusters(session, region) -> list[str]:
             rds,
             'describe_db_clusters',
             PaginationConfig={'PageSize': 100},
-            SearchPath='DBClusters[].[DBClusterArn,TagList]',
+            SearchPath='DBClusters[].[DBClusterArn,TagList,Engine]',
         )
     )
 
     return [
         cluster_arn
-        for cluster_arn, cluster_tags in cluster
+        for cluster_arn, cluster_tags, engine in cluster
         if check_delete(boto3_tag_list_to_dict(cluster_tags))
+        and engine not in ['neptune', 'docdb']
     ]
 
 

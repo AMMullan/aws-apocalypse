@@ -12,16 +12,16 @@ def query_neptune_instances(session, region) -> list[str]:
             neptune,
             'describe_db_instances',
             PaginationConfig={'PageSize': 100},
-            SearchPath='DBInstances[].DBInstanceArn',
+            SearchPath='DBInstances[].[DBInstanceArn,Engine]',
         )
     )
 
-    for instance_arn in instances:
+    for instance_arn, engine in instances:
         instance_tags = neptune.list_tags_for_resource(ResourceName=instance_arn)[
             'TagList'
         ]
 
-        if check_delete(boto3_tag_list_to_dict(instance_tags)):
+        if check_delete(boto3_tag_list_to_dict(instance_tags)) and engine == 'neptune':
             resource_arns.append(instance_arn)
 
     return resource_arns
@@ -51,16 +51,16 @@ def query_neptune_clusters(session, region) -> list[str]:
             neptune,
             'describe_db_clusters',
             PaginationConfig={'PageSize': 100},
-            SearchPath='DBClusters[].DBClusterArn',
+            SearchPath='DBClusters[].[DBClusterArn,Engine]',
         )
     )
 
-    for cluster_arn in cluster:
+    for cluster_arn, engine in cluster:
         cluster_tags = neptune.list_tags_for_resource(ResourceName=cluster_arn)[
             'TagList'
         ]
 
-        if check_delete(boto3_tag_list_to_dict(cluster_tags)):
+        if check_delete(boto3_tag_list_to_dict(cluster_tags)) and engine == 'neptune':
             resource_arns.append(cluster_arn)
 
     return resource_arns
