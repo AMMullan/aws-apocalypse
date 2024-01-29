@@ -58,51 +58,47 @@ def get_resource_regions(
 
 def get_actionable_resource_types(
     registry_services: list,
-    include_service: list,
-    include_resource: list,
-    exclude_service: list,
-    exclude_resource: list,
+    include_services: list,
+    include_resources: list,
+    exclude_services: list,
+    exclude_resources: list,
 ) -> list:
     lower_registry_resource_types = {svc.lower() for svc in registry_services}
     lower_registry_services = {
         svc.split(':')[0] for svc in lower_registry_resource_types
     }
-    lower_include_service = {svc.lower() for svc in include_service}
-    lower_exclude_service = {svc.lower() for svc in exclude_service}
-    lower_include_resource = {svc.lower() for svc in include_resource}
-    lower_exclude_resource = {svc.lower() for svc in exclude_resource}
+    include_services_lower = {svc.lower() for svc in include_services}
+    exclude_services_lower = {svc.lower() for svc in exclude_services}
+    include_resources_lower = {svc.lower() for svc in include_resources}
+    exclude_resources_lower = {svc.lower() for svc in exclude_resources}
 
     # Check requested service(s) exist, otherwise raise a warning
-    for service in lower_include_service | lower_exclude_service:
+    for service in include_services_lower | exclude_services_lower:
         if service not in lower_registry_services:
             print(f'WARNING: Unsupported Service: {service}')
 
     # Check requested resource(s) exist, otherwise raise a warning
-    for resource in lower_include_resource | lower_exclude_resource:
+    for resource in include_resources_lower | exclude_resources_lower:
         if resource not in lower_registry_resource_types:
             print(f'WARNING: Unsupported Resource: {resource}')
 
-    return [
-        resource_type
-        for resource_type in registry_services
-        if (
-            (
-                not include_service
-                or resource_type.split(':')[0].lower() in lower_include_service
-            )
-            and (
-                not include_resource or resource_type.lower() in lower_include_resource
-            )
-            and (
-                not exclude_service
-                or resource_type.split(':')[0].lower() not in lower_exclude_service
-            )
-            and (
-                not exclude_resource
-                or resource_type.lower() not in lower_exclude_resource
-            )
-        )
-    ]
+    actionable = []
+    for resource_type in registry_services:
+        resource_service = resource_type.split(':')[0].lower()
+
+        if resource_service in exclude_services_lower:
+            continue
+
+        if resource_type.lower() in exclude_resources_lower:
+            continue
+
+        if resource_service in include_services_lower:
+            actionable.append(resource_type)
+
+        if resource_type.lower() in include_resources_lower:
+            actionable.append(resource_type)
+
+    return actionable
 
 
 def main(args: argparse.Namespace) -> None:
