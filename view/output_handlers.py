@@ -20,12 +20,14 @@ class OutputHandler(ABC):
                 raise ValueError('Invalid Type: Console Expected')
 
     @abstractmethod
-    def generate_output(self, resource_types: list[str], regions: list[str]) -> None:
+    def retrieve_data(self, resource_types: list[str], regions: list[str]) -> None:
         pass
 
 
 class JSONOutputHandler(OutputHandler):
-    def generate_output(self, resource_types: list[str], regions: list[str]) -> None:
+    def retrieve_data(
+        self, resource_types: list[str], regions: list[str]
+    ) -> dict[str, dict[str, dict]]:
         resource_output = {}
 
         for resource_type in resource_types:
@@ -42,6 +44,7 @@ class JSONOutputHandler(OutputHandler):
                     )
 
         print(json.dumps(resource_output))
+        return resource_output
 
 
 class RichOutputHandler(OutputHandler):
@@ -58,7 +61,9 @@ class RichOutputHandler(OutputHandler):
 
         self.console.print(table)
 
-    def generate_output(self, resource_types: list[str], regions: list[str]) -> None:
+    def retrieve_data(
+        self, resource_types: list[str], regions: list[str]
+    ) -> dict[str, dict[str, dict]]:
         resource_output = {}
 
         for resource_type in resource_types:
@@ -92,5 +97,7 @@ class RichOutputHandler(OutputHandler):
         if resource_output:
             self.console.print('\n# [yellow] Found AWS Resources\n')
             self.display_rich_resource_table(resource_output)
-        else:
-            self.console.print('\n# [green] No Resources Found')
+            return resource_output
+
+        self.console.print('\n# [green] No Resources Found')
+        return {}

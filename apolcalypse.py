@@ -158,7 +158,7 @@ def main(args: argparse.Namespace) -> None:
         case _:
             raise ValueError('Invalid Output Method')
 
-    handler.generate_output(resource_types, regions)
+    handler.retrieve_data(resource_types, regions)
 
 
 # This will only ever trigger if the script is executed directly
