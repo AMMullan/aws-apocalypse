@@ -91,11 +91,13 @@ def get_actionable_resource_types(
         if resource_type.lower() in exclude_resources_lower:
             continue
 
-        if resource_service in include_services_lower:
-            actionable.append(resource_type)
+        if include_services and resource_service not in include_services_lower:
+            continue
 
-        if resource_type.lower() in include_resources_lower:
-            actionable.append(resource_type)
+        if include_resources and resource_type.lower() not in include_resources_lower:
+            continue
+
+        actionable.append(resource_type)
 
     return actionable
 
