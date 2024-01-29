@@ -1,13 +1,10 @@
-from config import CONFIG
 from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('AutoScaling::AutoScalingGroup')
-def remove_autoscaling_groups(session, region) -> list[str]:
+@register_query_function('AutoScaling::AutoScalingGroup')
+def query_autoscaling_groups(session, region) -> list[str]:
     autoscaling = session.client('autoscaling', region_name=region)
-    removed_resources = []
-
     groups = list(
         paginate_and_search(
             autoscaling,
@@ -17,24 +14,27 @@ def remove_autoscaling_groups(session, region) -> list[str]:
         )
     )
 
-    for group_arn, group_tags in groups:
-        group_name = group_arn.split('/')[-1]
-
-        if check_delete(boto3_tag_list_to_dict(group_tags)):
-            if not CONFIG['LIST_ONLY']:
-                autoscaling.delete_auto_scaling_group(AutoScalingGroupName=group_name)
-
-            removed_resources.append(group_arn)
-
-    return removed_resources
+    return [
+        group_arn
+        for group_arn, group_tags in groups
+        if check_delete(boto3_tag_list_to_dict(group_tags))
+    ]
 
 
-@register_resource('AutoScaling::LaunchConfiguration')
-def remove_autoscaling_launch_configs(session, region) -> list[str]:
+@register_terminate_function('AutoScaling::AutoScalingGroup')
+def remove_autoscaling_groups(session, region, resource_arns: list[str]) -> None:
     autoscaling = session.client('autoscaling', region_name=region)
-    removed_resources = []
 
-    launch_congigs = list(
+    for group_arn in resource_arns:
+        autoscaling.delete_auto_scaling_group(
+            AutoScalingGroupName=group_arn.split('/')[-1]
+        )
+
+
+@register_query_function('AutoScaling::LaunchConfiguration')
+def query_autoscaling_launch_configs(session, region) -> list[str]:
+    autoscaling = session.client('autoscaling', region_name=region)
+    return list(
         paginate_and_search(
             autoscaling,
             'describe_launch_configurations',
@@ -43,12 +43,14 @@ def remove_autoscaling_launch_configs(session, region) -> list[str]:
         )
     )
 
-    for config_arn in launch_congigs:
-        config_name = config_arn.split('/')[-1]
 
-        if not CONFIG['LIST_ONLY']:
-            autoscaling.delete_launch_configuration(LaunchConfigurationName=config_name)
+@register_terminate_function('AutoScaling::LaunchConfiguration')
+def remove_autoscaling_launch_configs(
+    session, region, resource_arns: list[str]
+) -> None:
+    autoscaling = session.client('autoscaling', region_name=region)
 
-        removed_resources.append(config_arn)
-
-    return removed_resources
+    for config_arn in resource_arns:
+        autoscaling.delete_launch_configuration(
+            LaunchConfigurationName=config_arn.split('/')[-1]
+        )

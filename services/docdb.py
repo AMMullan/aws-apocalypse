@@ -1,12 +1,11 @@
-from config import CONFIG
 from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('DocDB::DBInstance')
-def remove_docdb_instances(session, region) -> list[str]:
+@register_query_function('DocDB::DBInstance')
+def query_docdb_instances(session, region) -> list[str]:
     docdb = session.client('docdb', region_name=region)
-    removed_resources = []
+    resource_arns = []
 
     instances = list(
         paginate_and_search(
@@ -23,25 +22,30 @@ def remove_docdb_instances(session, region) -> list[str]:
         ]
 
         if check_delete(boto3_tag_list_to_dict(instance_tags)):
-            if not CONFIG['LIST_ONLY']:
-                docdb.delete_db_instance(
-                    DBInstanceIdentifier=instance_id,
-                    SkipFinalSnapshot=True,
-                    DeleteAutomatedBackups=True,
-                )
-                docdb.get_waiter('db_instance_deleted').wait(
-                    DBInstanceIdentifier=instance_id
-                )
+            resource_arns.append(instance_arn)
 
-            removed_resources.append(instance_arn)
-
-    return removed_resources
+    return resource_arns
 
 
-@register_resource('DocDB::DBCluster')
-def remove_docdb_clusters(session, region) -> list[str]:
+@register_terminate_function('DocDB::DBInstance')
+def remove_docdb_instances(session, region, resource_arns: list[str]) -> None:
     docdb = session.client('docdb', region_name=region)
-    removed_resources = []
+
+    for db_arn in resource_arns:
+        instance_id = db_arn.split(':')[-1]
+
+        docdb.delete_db_instance(
+            DBInstanceIdentifier=instance_id,
+            SkipFinalSnapshot=True,
+            DeleteAutomatedBackups=True,
+        )
+        docdb.get_waiter('db_instance_deleted').wait(DBInstanceIdentifier=instance_id)
+
+
+@register_query_function('DocDB::DBCluster')
+def query_docdb_clusters(session, region) -> list[str]:
+    docdb = session.client('docdb', region_name=region)
+    resource_arns = []
 
     cluster = list(
         paginate_and_search(
@@ -56,16 +60,22 @@ def remove_docdb_clusters(session, region) -> list[str]:
         cluster_tags = docdb.list_tags_for_resource(ResourceName=cluster_arn)['TagList']
 
         if check_delete(boto3_tag_list_to_dict(cluster_tags)):
-            if not CONFIG['LIST_ONLY']:
-                docdb.delete_db_cluster(
-                    DBClusterIdentifier=cluster_id,
-                    SkipFinalSnapshot=True,
-                    DeleteAutomatedBackups=True,
-                )
-                docdb.get_waiter('db_cluster_deleted').wait(
-                    DBClusterIdentifier=cluster_id, WaiterConfig={'Delay': 10}
-                )
+            resource_arns.append(cluster_arn)
 
-            removed_resources.append(cluster_arn)
+    return resource_arns
 
-    return removed_resources
+
+@register_terminate_function('DocDB::DBCluster')
+def remove_docdb_clusters(session, region, resource_arns: list[str]) -> None:
+    docdb = session.client('docdb', region_name=region)
+
+    for cluster_arn in resource_arns:
+        cluster_id = cluster_arn.split(':')[-1]
+        docdb.delete_db_cluster(
+            DBClusterIdentifier=cluster_id,
+            SkipFinalSnapshot=True,
+            DeleteAutomatedBackups=True,
+        )
+        docdb.get_waiter('db_cluster_deleted').wait(
+            DBClusterIdentifier=cluster_id, WaiterConfig={'Delay': 10}
+        )

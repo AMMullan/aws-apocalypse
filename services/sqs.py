@@ -1,17 +1,16 @@
-from config import CONFIG
 from lib.utils import (
     check_delete,
     get_account_id,
     paginate_and_search,
 )
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('SQS::Queue')
-def remove_sqs_queues(session, region) -> list[str]:
+@register_query_function('SQS::Queue')
+def query_sqs_queues(session, region) -> list[str]:
     account_id = get_account_id(session)
     sqs = session.client('sqs', region_name=region)
-    removed_resources = []
+    resource_arns = []
 
     queues = [
         queue_url
@@ -34,9 +33,20 @@ def remove_sqs_queues(session, region) -> list[str]:
             raise e
 
         if check_delete(queue_tags):
-            if not CONFIG['LIST_ONLY']:
-                sqs.delete_queue(QueueUrl=queue_url)
+            resource_arns.append(queue_arn)
 
-            removed_resources.append(queue_arn)
+    return resource_arns
 
-    return removed_resources
+
+@register_terminate_function('SQS::Queue')
+def remove_sqs_queues(session, region, resource_arns: list[str]) -> None:
+    sqs = session.client('sqs', region_name=region)
+
+    for queue_arn in resource_arns:
+        account_id = queue_arn.split(':')[4]
+        region = queue_arn.split(':')[3]
+        queue_name = queue_arn.split(':')[-1]
+
+        queue_url = f'https://sqs.{region}.amazonaws.com/{account_id}/{queue_name}'
+
+        sqs.delete_queue(QueueUrl=queue_url)

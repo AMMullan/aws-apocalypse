@@ -1,23 +1,22 @@
-from config import CONFIG
 from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('Transfer::Server')
-def remove_transfer_servers(session, region) -> list[str]:
+@register_query_function('Transfer::Server')
+def query_transfer_servers(session, region) -> list[str]:
     transfer = session.client('transfer', region_name=region)
-    removed_resources = []
+    resource_arns = []
 
     servers = list(
         paginate_and_search(
             transfer,
             'list_servers',
             PaginationConfig={'PageSize': 100},
-            SearchPath='Servers[].[Arn,ServerId]',
+            SearchPath='Servers[].Arn',
         )
     )
 
-    for server_arn, server_id in servers:
+    for server_arn in servers:
         tags = list(
             paginate_and_search(
                 transfer,
@@ -29,9 +28,15 @@ def remove_transfer_servers(session, region) -> list[str]:
         )
 
         if check_delete(boto3_tag_list_to_dict(tags)):
-            if not CONFIG['LIST_ONLY']:
-                transfer.delete_server(ServerId=server_id)
+            resource_arns.append(server_arn)
 
-            removed_resources.append(server_arn)
+    return resource_arns
 
-    return removed_resources
+
+@register_terminate_function('Transfer::Server')
+def remove_transfer_servers(session, region, resource_arns: list[str]) -> None:
+    transfer = session.client('transfer', region_name=region)
+
+    for server_arn in resource_arns:
+        server_id = server_arn.split('/')[-1]
+        transfer.delete_server(ServerId=server_id)

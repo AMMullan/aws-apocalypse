@@ -1,65 +1,70 @@
-from config import CONFIG
 from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('RDS::Instance')
-def remove_rds_instances(session, region) -> list[str]:
+@register_query_function('RDS::Instance')
+def query_rds_instances(session, region) -> list[str]:
     rds = session.client('rds', region_name=region)
-    removed_resources = []
-
     instances = list(
         paginate_and_search(
             rds,
             'describe_db_instances',
             PaginationConfig={'PageSize': 100},
-            SearchPath='DBInstances[].[DBInstanceIdentifier,DBInstanceArn,TagList]',
+            SearchPath='DBInstances[].[DBInstanceArn,TagList]',
         )
     )
 
-    for instance_id, instance_arn, instance_tags in instances:
-        if check_delete(boto3_tag_list_to_dict(instance_tags)):
-            if not CONFIG['LIST_ONLY']:
-                rds.delete_db_instance(
-                    DBInstanceIdentifier=instance_id,
-                    SkipFinalSnapshot=True,
-                    DeleteAutomatedBackups=True,
-                )
-                rds.get_waiter('db_instance_deleted').wait(
-                    DBInstanceIdentifier=instance_id
-                )
-
-            removed_resources.append(instance_arn)
-
-    return removed_resources
+    return [
+        instance_arn
+        for instance_arn, instance_tags in instances
+        if check_delete(boto3_tag_list_to_dict(instance_tags))
+    ]
 
 
-@register_resource('RDS::Cluster')
-def remove_rds_clusters(session, region) -> list[str]:
+@register_terminate_function('RDS::Instance')
+def remove_rds_instances(session, region, resource_arns: list[str]) -> None:
     rds = session.client('rds', region_name=region)
-    removed_resources = []
 
+    for db_arn in resource_arns:
+        instance_id = db_arn.split(':')[-1]
+        rds.delete_db_instance(
+            DBInstanceIdentifier=instance_id,
+            SkipFinalSnapshot=True,
+            DeleteAutomatedBackups=True,
+        )
+        rds.get_waiter('db_instance_deleted').wait(DBInstanceIdentifier=instance_id)
+
+
+@register_query_function('RDS::Cluster')
+def query_rds_clusters(session, region) -> list[str]:
+    rds = session.client('rds', region_name=region)
     cluster = list(
         paginate_and_search(
             rds,
             'describe_db_clusters',
             PaginationConfig={'PageSize': 100},
-            SearchPath='DBClusters[].[DBClusterIdentifier,DBClusterArn,TagList]',
+            SearchPath='DBClusters[].[DBClusterArn,TagList]',
         )
     )
 
-    for cluster_id, cluster_arn, cluster_tags in cluster:
-        if check_delete(boto3_tag_list_to_dict(cluster_tags)):
-            if not CONFIG['LIST_ONLY']:
-                rds.delete_db_cluster(
-                    DBClusterIdentifier=cluster_id,
-                    SkipFinalSnapshot=True,
-                    DeleteAutomatedBackups=True,
-                )
-                rds.get_waiter('db_cluster_deleted').wait(
-                    DBClusterIdentifier=cluster_id, WaiterConfig={'Delay': 10}
-                )
+    return [
+        cluster_arn
+        for cluster_arn, cluster_tags in cluster
+        if check_delete(boto3_tag_list_to_dict(cluster_tags))
+    ]
 
-            removed_resources.append(cluster_arn)
 
-    return removed_resources
+@register_terminate_function('RDS::Cluster')
+def remove_rds_clusters(session, region, resource_arns: list[str]) -> None:
+    rds = session.client('rds', region_name=region)
+
+    for db_arn in resource_arns:
+        cluster_id = db_arn.split(':')[-1]
+        rds.delete_db_cluster(
+            DBClusterIdentifier=cluster_id,
+            SkipFinalSnapshot=True,
+            DeleteAutomatedBackups=True,
+        )
+        rds.get_waiter('db_cluster_deleted').wait(
+            DBClusterIdentifier=cluster_id, WaiterConfig={'Delay': 10}
+        )

@@ -1,12 +1,11 @@
-from config import CONFIG
 from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('ElasticLoadBalancingV2::LoadBalancer')
-def remove_elbv2_loadbalancers(session, region) -> list[str]:
+@register_query_function('ElasticLoadBalancingV2::LoadBalancer')
+def query_elbv2_loadbalancers(session, region) -> list[str]:
     elb = session.client('elbv2', region_name=region)
-    removed_resources = []
+    resource_arns = []
 
     loadbalancers = list(
         paginate_and_search(
@@ -21,18 +20,23 @@ def remove_elbv2_loadbalancers(session, region) -> list[str]:
         tags = elb.describe_tags(ResourceArns=[lb_arn])['TagDescriptions'][0]['Tags']
 
         if check_delete(boto3_tag_list_to_dict(tags)):
-            if not CONFIG['LIST_ONLY']:
-                elb.delete_load_balancer(LoadBalancerArn=lb_arn)
+            resource_arns.append(lb_arn)
 
-            removed_resources.append(lb_arn)
-
-    return removed_resources
+    return resource_arns
 
 
-@register_resource('ElasticLoadBalancingV2::TargetGroup')
-def remove_elbv2_targetgroups(session, region) -> list[str]:
+@register_terminate_function('ElasticLoadBalancingV2::LoadBalancer')
+def remove_elbv2_loadbalancers(session, region, resource_arns: list[str]) -> None:
     elb = session.client('elbv2', region_name=region)
-    removed_resources = []
+
+    for lb_arn in resource_arns:
+        elb.delete_load_balancer(LoadBalancerArn=lb_arn)
+
+
+@register_query_function('ElasticLoadBalancingV2::TargetGroup')
+def query_elbv2_targetgroups(session, region) -> list[str]:
+    elb = session.client('elbv2', region_name=region)
+    resource_arns = []
 
     groups = list(
         paginate_and_search(
@@ -47,9 +51,14 @@ def remove_elbv2_targetgroups(session, region) -> list[str]:
         tags = elb.describe_tags(ResourceArns=[group_arn])['TagDescriptions'][0]['Tags']
 
         if check_delete(boto3_tag_list_to_dict(tags)):
-            if not CONFIG['LIST_ONLY']:
-                elb.delete_target_group(TargetGroupArn=group_arn)
+            resource_arns.append(group_arn)
 
-            removed_resources.append(group_arn)
+    return resource_arns
 
-    return removed_resources
+
+@register_terminate_function('ElasticLoadBalancingV2::TargetGroup')
+def remove_elbv2_targetgroups(session, region, resource_arns: list[str]) -> None:
+    elb = session.client('elbv2', region_name=region)
+
+    for group_arn in resource_arns:
+        elb.delete_target_group(TargetGroupArn=group_arn)

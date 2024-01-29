@@ -1,12 +1,11 @@
-from config import CONFIG
 from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('DynamoDB::Table')
-def remove_ddb_tables(session, region) -> list[str]:
+@register_query_function('DynamoDB::Table')
+def query_ddb_tables(session, region) -> list[str]:
     ddb = session.client('dynamodb', region_name=region)
-    removed_resources = []
+    resource_arns = []
 
     tables = list(
         paginate_and_search(
@@ -22,9 +21,15 @@ def remove_ddb_tables(session, region) -> list[str]:
         table_tags = ddb.list_tags_of_resource(ResourceArn=table_arn)['Tags']
 
         if check_delete(boto3_tag_list_to_dict(table_tags)):
-            if not CONFIG['LIST_ONLY']:
-                ddb.delete_table(TableName=table_name)
+            resource_arns.append(table_arn)
 
-            removed_resources.append(table_arn)
+    return resource_arns
 
-    return removed_resources
+
+@register_terminate_function('DynamoDB::Table')
+def remove_ddb_tables(session, region, resource_arns: list[str]) -> None:
+    ddb = session.client('dynamodb', region_name=region)
+
+    for table_arn in resource_arns:
+        table_name = table_arn.split('/')[-1]
+        ddb.delete_table(TableName=table_name)

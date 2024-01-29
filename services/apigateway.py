@@ -1,13 +1,10 @@
-from config import CONFIG
 from lib.utils import check_delete, paginate_and_search
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('ApiGateway::RestApi')
-def remove_apigateway_rest_apis(session, region) -> list[str]:
+@register_query_function('ApiGateway::RestApi')
+def query_apigateway_rest_apis(session, region) -> list[str]:
     apigateway = session.client('apigateway', region_name=region)
-    removed_resources = []
-
     apis = list(
         paginate_and_search(
             apigateway,
@@ -17,11 +14,17 @@ def remove_apigateway_rest_apis(session, region) -> list[str]:
         )
     )
 
-    for api_id, api_tags in apis:
-        if check_delete(api_tags):
-            if not CONFIG['LIST_ONLY']:
-                apigateway.delete_rest_api(restApiId=api_id)
+    return [
+        f'arn:aws:apigateway:{region}::/restapis/{api_id}'
+        for api_id, api_tags in apis
+        if check_delete(api_tags)
+    ]
 
-            removed_resources.append(f'arn:aws:apigateway:{region}::/restapis/{api_id}')
 
-    return removed_resources
+@register_terminate_function('ApiGateway::RestApi')
+def remove_apigateway_rest_apis(session, region, resource_arns: list[str]) -> None:
+    apigateway = session.client('apigateway', region_name=region)
+
+    for api_arn in resource_arns:
+        api_id = api_arn.split('/')[-1]
+        apigateway.delete_rest_api(restApiId=api_id)

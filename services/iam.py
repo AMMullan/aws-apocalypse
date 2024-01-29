@@ -1,52 +1,57 @@
-from config import CONFIG
 from lib.utils import boto3_tag_list_to_dict, check_delete
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('IAM::User')
-def remove_iam_users(session, region) -> list[str]:
+@register_query_function('IAM::User')
+def query_iam_users(session, region) -> list[str]:
     if region != 'global':
-        return
+        return []
 
     iam = session.resource('iam')
     iam_c = session.client('iam')
-    removed_resources = []
+    resource_arns = []
 
     for user in iam.users.all():
-        user_arn = user.arn
         user_tags = iam_c.list_user_tags(UserName=user.name)['Tags']
 
         if not check_delete(boto3_tag_list_to_dict(user_tags)):
             continue
 
-        if not CONFIG['LIST_ONLY']:
-            for policy in user.attached_policies.all():
-                policy.detach_user(UserName=user.name)
+        resource_arns.append(user.arn)
 
-            for policy in user.policies.all():
-                policy.delete()
-
-            for group in user.groups.all():
-                group.remove_user(UserName=user.name)
-
-            user.delete()
-
-        removed_resources.append(user_arn)
-
-    return removed_resources
+    return resource_arns
 
 
-@register_resource('IAM::Role')
-def remove_iam_roles(session, region) -> list[str]:
+@register_terminate_function('IAM::User')
+def remove_iam_users(session, region, resource_arns: list[str]) -> None:
+    iam = session.resource('iam')
+
+    for user_arn in resource_arns:
+        username = user_arn.split('/')[-1]
+        user = iam.User(username)
+
+        for policy in user.attached_policies.all():
+            policy.detach_user(UserName=user.name)
+
+        for policy in user.policies.all():
+            policy.delete()
+
+        for group in user.groups.all():
+            group.remove_user(UserName=user.name)
+
+        user.delete()
+
+
+@register_query_function('IAM::Role')
+def query_iam_roles(session, region) -> list[str]:
     if region != 'global':
-        return
+        return []
 
     iam = session.resource('iam')
     iam_c = session.client('iam')
-    removed_resources = []
+    resource_arns = []
 
     for role in iam.roles.all():
-        role_arn = role.arn
         role_tags = iam_c.list_role_tags(RoleName=role.name)['Tags']
 
         if role.path.startswith(('/aws-reserved/', '/aws-service-role/')):
@@ -55,69 +60,79 @@ def remove_iam_roles(session, region) -> list[str]:
         if not check_delete(boto3_tag_list_to_dict(role_tags)):
             continue
 
-        if not CONFIG['LIST_ONLY']:
-            for policy in role.attached_policies.all():
-                policy.detach_role(RoleName=role.name)
+        role_arn = role.arn
+        resource_arns.append(role_arn)
 
-            for policy in role.policies.all():
-                policy.delete()
-
-            for instance_profile in role.instance_profiles.all():
-                instance_profile.remove_role(RoleName=role.name)
-
-            role.delete()
-
-        removed_resources.append(role_arn)
-
-    return removed_resources
+    return resource_arns
 
 
-@register_resource('IAM::InstanceProfile')
-def remove_iam_instance_profiles(session, region) -> list[str]:
+@register_terminate_function('IAM::Role')
+def remove_iam_roles(session, region, resource_arns: list[str]) -> None:
+    iam = session.resource('iam')
+
+    for role_arn in resource_arns:
+        role_name = role_arn.split('/')[-1]
+        role = iam.Role(role_name)
+
+        for policy in role.attached_policies.all():
+            policy.detach_role(RoleName=role.name)
+
+        for policy in role.policies.all():
+            policy.delete()
+
+        for instance_profile in role.instance_profiles.all():
+            instance_profile.remove_role(RoleName=role.name)
+
+        role.delete()
+
+
+@register_query_function('IAM::InstanceProfile')
+def query_iam_instance_profiles(session, region) -> list[str]:
     if region != 'global':
-        return
+        return []
 
     iam = session.resource('iam')
-    removed_resources = []
-
-    for instance_profile in iam.instance_profiles.all():
-        profile_arn = instance_profile.arn
-
-        if not CONFIG['LIST_ONLY']:
-            instance_profile.delete()
-
-        removed_resources.append(profile_arn)
-
-    return removed_resources
+    return [instance_profile.arn for instance_profile in iam.instance_profiles.all()]
 
 
-@register_resource('IAM::Group')
-def remove_iam_groups(session, region) -> list[str]:
+@register_terminate_function('IAM::InstanceProfile')
+def remove_iam_instance_profiles(session, region, resource_arns: list[str]) -> None:
+    iam = session.resource('iam')
+
+    for profile_arn in resource_arns:
+        profile_name = profile_arn.split('/')[-1]
+
+        profile = iam.InstanceProfile(profile_name)
+        profile.delete()
+
+
+@register_query_function('IAM::Group')
+def query_iam_groups(session, region) -> list[str]:
     if region != 'global':
-        return
+        return []
 
     iam = session.resource('iam')
-    removed_resources = []
-
-    for group in iam.groups.all():
-        group_arn = group.arn
-
-        if not CONFIG['LIST_ONLY']:
-            group.delete()
-
-        removed_resources.append(group_arn)
-
-    return removed_resources
+    return [group.arn for group in iam.groups.all()]
 
 
-@register_resource('IAM::Policy')
-def remove_iam_policies(session, region) -> list[str]:
+@register_terminate_function('IAM::Group')
+def remove_iam_groups(session, region, resource_arns: list[str]) -> None:
+    iam = session.resource('iam')
+
+    for group_arn in resource_arns:
+        group_name = group_arn.split('/')[-1]
+        group = iam.Group(group_name)
+        group.delete()
+
+
+@register_query_function('IAM::Policy')
+def query_iam_policies(session, region) -> list[str]:
     if region != 'global':
-        return
+        return []
 
     iam = session.resource('iam')
     iam_c = session.client('iam')
-    removed_resources = []
+    resource_arns = []
 
     for policy in iam.policies.filter(Scope='Local'):
         policy_arn = policy.arn
@@ -126,9 +141,16 @@ def remove_iam_policies(session, region) -> list[str]:
         if not check_delete(boto3_tag_list_to_dict(policy_tags)):
             continue
 
-        if not CONFIG['LIST_ONLY']:
-            policy.delete()
+        resource_arns.append(policy_arn)
 
-        removed_resources.append(policy_arn)
+    return resource_arns
 
-    return removed_resources
+
+@register_terminate_function('IAM::Policy')
+def remove_iam_policies(session, region, resource_arns: list[str]) -> None:
+    iam = session.resource('iam')
+
+    for policy_arn in resource_arns:
+        policy_name = policy_arn.split('/')[-1]
+        policy = iam.Policy(policy_name)
+        policy.delete()

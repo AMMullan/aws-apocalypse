@@ -1,12 +1,11 @@
-from config import CONFIG
 from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
-from registry.decorator import register_resource
+from registry.decorator import register_query_function, register_terminate_function
 
 
-@register_resource('CertificateManager::Certificate')
-def remove_acm_certificates(session, region) -> list[str]:
+@register_query_function('CertificateManager::Certificate')
+def query_acm_certificates(session, region) -> list[str]:
     acm = session.client('acm', region_name=region)
-    removed_resources = []
+    resource_arns = []
 
     certificates = list(
         paginate_and_search(
@@ -21,9 +20,14 @@ def remove_acm_certificates(session, region) -> list[str]:
         cert_tags = acm.list_tags_for_certificate(CertificateArn=cert_arn)['Tags']
 
         if check_delete(boto3_tag_list_to_dict(cert_tags)):
-            if not CONFIG['LIST_ONLY']:
-                acm.delete_certificate(CertificateArn=cert_arn)
+            resource_arns.append(cert_arn)
 
-            removed_resources.append(cert_arn)
+    return resource_arns
 
-    return removed_resources
+
+@register_terminate_function('CertificateManager::Certificate')
+def remove_acm_certificates(session, region, resource_arns: list[str]) -> None:
+    acm = session.client('acm', region_name=region)
+
+    for cert_arn in resource_arns:
+        acm.delete_certificate(CertificateArn=cert_arn)
