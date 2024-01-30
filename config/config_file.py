@@ -13,6 +13,9 @@ def parse_config_file(config_file: Path) -> None:
     for account_id in json_config.get('whitelisted_accounts'):
         config.add_whitelisted_account(account_id)
 
+    if json_config.get('allow_exceptions', False):
+        config.ALLOW_EXCEPTIONS = True
+
     for exception in json_config.get('custom_exception_tags'):
         config.add_custom_exception_tag(exception)
 
