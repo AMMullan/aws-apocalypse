@@ -12,7 +12,7 @@ def is_valid_file(parser, arg):
     return Path(arg)
 
 
-def parse_args() -> None:  # sourcery skip: extract-duplicate-method
+def parse_args() -> argparse.Namespace:  # sourcery skip: extract-duplicate-method
     global_parser = argparse.ArgumentParser(add_help=False)
     global_parser.add_argument(
         '-v',
@@ -124,14 +124,18 @@ def parse_args() -> None:  # sourcery skip: extract-duplicate-method
 
     args = main_parser.parse_args()
 
+    if not args.command and not args.list_resource_types:
+        main_parser.print_help()
+        raise SystemExit
+
     # Add Global Arguments here
     args.profile = global_args.profile
     args.config = global_args.config
     args.list_resource_types = global_args.list_resource_types
 
-    if not args.command and not args.list_resource_types:
-        main_parser.print_help()
-        raise SystemExit
+    # If we're doing a --list-resource-types, return early so we can just list resources
+    if args.list_resource_types:
+        return args
 
     if args.region:
         for region in args.region:

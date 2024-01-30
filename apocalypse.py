@@ -135,15 +135,15 @@ def main(args: argparse.Namespace) -> None:
     # Load Resources from the Registry
     load_resources()
 
-    if args.config:
-        parse_config_file(args.config)
-
     # Listing Resource Types
     if args.list_resource_types:
         console.print('# [yellow] Found AWS Resources\n')
         for service in sorted(query_registry.keys()):
             console.print('[grey35]•[/grey35]', f'{service}')
         return
+
+    if args.config:
+        parse_config_file(args.config)
 
     # Establish a boto3 session
     try:
@@ -190,4 +190,4 @@ def main(args: argparse.Namespace) -> None:
 if __name__ == '__main__':
     args = parse_args()
 
-    main(args)  # type: ignore
+    main(args)
