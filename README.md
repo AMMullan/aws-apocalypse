@@ -3,7 +3,7 @@
 # AWS Apocalypse
 *NB: This script is still under active development but at present is in a functional state.*
 
-AWS Apocalypse is a Python alternative to [cloud-nuke](https://github.com/gruntwork-io/cloud-nuke). It is designed to mimic (as best I can) the same CLI arguments and core functionality, whilst making it simpler to extend and maintain.
+AWS Apocalypse is a Python alternative to [cloud-nuke](https://github.com/gruntwork-io/cloud-nuke). It is designed to mimic the CLI arguments and core functionality, whilst making it simpler to extend and maintain. The rich output is also similar to cloud-nuke.
 
 > #### BEWARE!
 > When executed as `apocalypse.py aws`, this tool is **HIGHLY DESTRUCTIVE** and
