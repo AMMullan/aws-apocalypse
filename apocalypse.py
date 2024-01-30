@@ -141,10 +141,9 @@ def main(args: argparse.Namespace) -> None:
             console.print('[grey35]•[/grey35]', f'{service}')
         return
 
-    session_args = {'profile_name': args.profile} if args.profile else {}
-
     # Establish a boto3 session
     try:
+        session_args = {'profile_name': args.profile} if args.profile else {}
         session = boto3.session.Session(**session_args)  # type: ignore
     except botocore.exceptions.ProfileNotFound as e:  # type: ignore
         raise SystemError(f'Profile "{args.profile}" Not Found.') from e
