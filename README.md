@@ -109,3 +109,8 @@ When using a configuration file you can specifically blacklist, or whitelist, ac
 
 ## Extending
 We use the **Registry** pattern to add a new service/resource type to Apocalypse. You simply need to create 2 new functions in an appropriate .py file in the **services/** folder. These functions need to be decorated with the *register_query_function* and *register_terminate_function* and ensure that the parameters match the existing ones (session and region for both, and resource_arns for the terminate function).
+
+## Contributing
+AWS Apocalypse is an open source project and, therefore, contributions from the community are highly encouraged.
+
+There are a few areas that have yet to be done, like adding tests. I'm also sure that there are ways to make the service more maintainable.
