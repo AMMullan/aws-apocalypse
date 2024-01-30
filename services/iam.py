@@ -4,9 +4,6 @@ from registry.decorator import register_query_function, register_terminate_funct
 
 @register_query_function('IAM::User')
 def query_iam_users(session, region) -> list[str]:
-    if region != 'global':
-        return []
-
     iam = session.resource('iam')
     iam_c = session.client('iam')
     resource_arns = []
@@ -44,9 +41,6 @@ def remove_iam_users(session, region, resource_arns: list[str]) -> None:
 
 @register_query_function('IAM::Role')
 def query_iam_roles(session, region) -> list[str]:
-    if region != 'global':
-        return []
-
     iam = session.resource('iam')
     iam_c = session.client('iam')
     resource_arns = []
@@ -88,9 +82,6 @@ def remove_iam_roles(session, region, resource_arns: list[str]) -> None:
 
 @register_query_function('IAM::InstanceProfile')
 def query_iam_instance_profiles(session, region) -> list[str]:
-    if region != 'global':
-        return []
-
     iam = session.resource('iam')
     return [instance_profile.arn for instance_profile in iam.instance_profiles.all()]
 
@@ -108,9 +99,6 @@ def remove_iam_instance_profiles(session, region, resource_arns: list[str]) -> N
 
 @register_query_function('IAM::Group')
 def query_iam_groups(session, region) -> list[str]:
-    if region != 'global':
-        return []
-
     iam = session.resource('iam')
     return [group.arn for group in iam.groups.all()]
 
@@ -127,9 +115,6 @@ def remove_iam_groups(session, region, resource_arns: list[str]) -> None:
 
 @register_query_function('IAM::Policy')
 def query_iam_policies(session, region) -> list[str]:
-    if region != 'global':
-        return []
-
     iam = session.resource('iam')
     iam_c = session.client('iam')
     resource_arns = []

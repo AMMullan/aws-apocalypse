@@ -4,7 +4,7 @@ from registry.decorator import register_query_function, register_terminate_funct
 
 @register_query_function('CloudWatch::Alarm')
 def query_cloudwatch_alarms(session, region) -> list[str]:
-    cloudwatch = session.client('cloudwatch', region_name='us-east-1')
+    cloudwatch = session.client('cloudwatch', region_name=region)
     resource_arns = []
 
     for alarm_arn in paginate_and_search(
@@ -32,9 +32,6 @@ def remove_cloudwatch_alarms(session, region, resource_arns: list[str]) -> None:
 
 @register_query_function('CloudWatch::Dashboard')
 def query_cloudwatch_dashboards(session, region) -> list[str]:
-    if region != 'global':
-        raise
-
     cloudwatch = session.client('cloudwatch', region_name='us-east-1')
     return [
         dashboard['DashboardArn']
