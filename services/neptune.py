@@ -1,5 +1,6 @@
-from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
+from lib.utils import boto3_tag_list_to_dict, check_delete
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('Neptune::DBInstance')
@@ -8,11 +9,10 @@ def query_neptune_instances(session, region) -> list[str]:
     resource_arns = []
 
     instances = list(
-        paginate_and_search(
+        boto3_paginate(
             neptune,
             'describe_db_instances',
-            PaginationConfig={'PageSize': 100},
-            SearchPath='DBInstances[].[DBInstanceArn,Engine]',
+            search='DBInstances[].[DBInstanceArn,Engine]',
         )
     )
 
@@ -47,11 +47,10 @@ def query_neptune_clusters(session, region) -> list[str]:
     resource_arns = []
 
     cluster = list(
-        paginate_and_search(
+        boto3_paginate(
             neptune,
             'describe_db_clusters',
-            PaginationConfig={'PageSize': 100},
-            SearchPath='DBClusters[].[DBClusterArn,Engine]',
+            search='DBClusters[].[DBClusterArn,Engine]',
         )
     )
 

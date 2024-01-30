@@ -1,5 +1,6 @@
-from lib.utils import check_delete, paginate_and_search
+from lib.utils import check_delete
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('Lambda::Function')
@@ -8,11 +9,10 @@ def query_lambda_functions(session, region) -> list[str]:
     resource_arns = []
 
     functions = list(
-        paginate_and_search(
+        boto3_paginate(
             lmbda,
             'list_functions',
-            PaginationConfig={'PageSize': 500},
-            SearchPath='Functions[].FunctionArn',
+            search='Functions[].FunctionArn',
         )
     )
     for function_arn in functions:
@@ -39,21 +39,19 @@ def query_lambda_layers(session, region) -> list[str]:
     resource_arns = []
 
     layers = list(
-        paginate_and_search(
+        boto3_paginate(
             lmbda,
             'list_layers',
-            PaginationConfig={'PageSize': 50},
-            SearchPath='Layers[].[LayerName,LayerArn]',
+            search='Layers[].[LayerName,LayerArn]',
         )
     )
     for layer_name, layer_arn in layers:
         layer_versions = list(
-            paginate_and_search(
+            boto3_paginate(
                 lmbda,
                 'list_layer_versions',
                 LayerName=layer_name,
-                PaginationConfig={'PageSize': 50},
-                SearchPath='LayerVersions[].Version',
+                search='LayerVersions[].Version',
             )
         )
         resource_arns.extend(

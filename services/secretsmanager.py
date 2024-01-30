@@ -1,16 +1,16 @@
-from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
+from lib.utils import boto3_tag_list_to_dict, check_delete
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('SecretsManager::Secret')
 def query_secretsmanager_secret(session, region) -> list[str]:
     secretsmanager = session.client('secretsmanager', region_name=region)
     secrets = list(
-        paginate_and_search(
+        boto3_paginate(
             secretsmanager,
             'list_secrets',
-            PaginationConfig={'PageSize': 100},
-            SearchPath='SecretList[].[ARN,Tags]',
+            search='SecretList[].[ARN,Tags]',
         )
     )
 

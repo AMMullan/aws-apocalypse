@@ -1,7 +1,8 @@
 import time
 
-from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
+from lib.utils import boto3_tag_list_to_dict, check_delete
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('ECS::Cluster')
@@ -10,11 +11,10 @@ def query_ecs_clusters(session, region) -> list[str]:
     resource_arns = []
 
     clusters = list(
-        paginate_and_search(
+        boto3_paginate(
             ecs,
             'list_clusters',
-            PaginationConfig={'PageSize': 100},
-            SearchPath='clusterArns[]',
+            search='clusterArns[]',
         )
     )
     for cluster_arn in clusters:
@@ -34,12 +34,11 @@ def remove_ecs_clusters(session, region, resource_arns: list[str]) -> None:
 
     for cluster_arn in resource_arns:
         services = list(
-            paginate_and_search(
+            boto3_paginate(
                 ecs,
                 'list_services',
                 cluster=cluster_arn,
-                PaginationConfig={'PageSize': 100},
-                SearchPath='serviceArns[]',
+                search='serviceArns[]',
             )
         )
         for service_arn in services:

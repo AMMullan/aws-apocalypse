@@ -1,5 +1,6 @@
-from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
+from lib.utils import boto3_tag_list_to_dict, check_delete
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('ElasticLoadBalancingV2::LoadBalancer')
@@ -8,11 +9,10 @@ def query_elbv2_loadbalancers(session, region) -> list[str]:
     resource_arns = []
 
     loadbalancers = list(
-        paginate_and_search(
+        boto3_paginate(
             elb,
             'describe_load_balancers',
-            PaginationConfig={'PageSize': 400},
-            SearchPath='LoadBalancers[].LoadBalancerArn',
+            search='LoadBalancers[].LoadBalancerArn',
         )
     )
 
@@ -39,11 +39,10 @@ def query_elbv2_targetgroups(session, region) -> list[str]:
     resource_arns = []
 
     groups = list(
-        paginate_and_search(
+        boto3_paginate(
             elb,
             'describe_target_groups',
-            PaginationConfig={'PageSize': 400},
-            SearchPath='TargetGroups[].TargetGroupArn',
+            search='TargetGroups[].TargetGroupArn',
         )
     )
 

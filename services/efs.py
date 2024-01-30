@@ -1,18 +1,18 @@
 import time
 
-from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
+from lib.utils import boto3_tag_list_to_dict, check_delete
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('EFS::FileSystem')
 def query_efs_filesystems(session, region) -> list[str]:
     efs = session.client('efs', region_name=region)
     filesystems = list(
-        paginate_and_search(
+        boto3_paginate(
             efs,
             'describe_file_systems',
-            PaginationConfig={'PageSize': 100},
-            SearchPath='FileSystems[].[FileSystemArn,Tags]',
+            search='FileSystems[].[FileSystemArn,Tags]',
         )
     )
 

@@ -1,5 +1,6 @@
-from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
+from lib.utils import boto3_tag_list_to_dict, check_delete
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('CloudWatch::Alarm')
@@ -7,12 +8,11 @@ def query_cloudwatch_alarms(session, region) -> list[str]:
     cloudwatch = session.client('cloudwatch', region_name=region)
     resource_arns = []
 
-    for alarm_arn in paginate_and_search(
+    for alarm_arn in boto3_paginate(
         cloudwatch,
         'describe_alarms',
         AlarmTypes=['MetricAlarm'],
-        PaginationConfig={'PageSize': 50},
-        SearchPath='MetricAlarms[].AlarmArn',
+        search='MetricAlarms[].AlarmArn',
     ):
         alarm_tags = cloudwatch.list_tags_for_resource(ResourceARN=alarm_arn)['Tags']
 
@@ -35,8 +35,8 @@ def query_cloudwatch_dashboards(session, region) -> list[str]:
     cloudwatch = session.client('cloudwatch', region_name='us-east-1')
     return [
         dashboard['DashboardArn']
-        for dashboard in paginate_and_search(
-            cloudwatch, 'list_dashboards', SearchPath='DashboardEntries[]'
+        for dashboard in boto3_paginate(
+            cloudwatch, 'list_dashboards', search='DashboardEntries[]'
         )
     ]
 

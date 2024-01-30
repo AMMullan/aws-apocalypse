@@ -1,5 +1,6 @@
-from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
+from lib.utils import boto3_tag_list_to_dict, check_delete
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('Kinesis:Stream')
@@ -8,11 +9,10 @@ def query_kinesis_datastreams(session, region) -> list[str]:
     resource_arns = []
 
     instances = list(
-        paginate_and_search(
+        boto3_paginate(
             kinesis,
             'list_streams',
-            PaginationConfig={'PageSize': 100},
-            SearchPath='StreamSummaries[].[StreamARN,StreamName]',
+            search='StreamSummaries[].[StreamARN,StreamName]',
         )
     )
 

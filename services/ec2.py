@@ -1,10 +1,6 @@
-from lib.utils import (
-    boto3_tag_list_to_dict,
-    check_delete,
-    get_account_id,
-    paginate_and_search,
-)
+from lib.utils import boto3_tag_list_to_dict, check_delete, get_account_id
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('EC2::Image')
@@ -12,12 +8,11 @@ def query_ec2_images(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
     images = list(
-        paginate_and_search(
+        boto3_paginate(
             ec2,
             'describe_images',
             Owners=['self'],
-            PaginationConfig={'PageSize': 500},
-            SearchPath='Images[].[ImageId,Tags]',
+            search='Images[].[ImageId,Tags]',
         )
     )
 
@@ -61,7 +56,7 @@ def query_ec2_instances(session, region) -> list[str]:
     ec2 = session.client('ec2', region_name=region)
 
     if instances := list(
-        paginate_and_search(
+        boto3_paginate(
             ec2,
             'describe_instances',
             Filters=[
@@ -70,8 +65,7 @@ def query_ec2_instances(session, region) -> list[str]:
                     'Values': ['running', 'stopped'],
                 }
             ],
-            PaginationConfig={'PageSize': 500},
-            SearchPath='Reservations[].Instances[].[InstanceId,Tags]',
+            search='Reservations[].Instances[].[InstanceId,Tags]',
         )
     ):
         return [
@@ -92,7 +86,7 @@ def remove_ec2_instances(session, region, resource_arns: list[str]) -> None:
     instance_ids = [instance_arn.split('/')[-1] for instance_arn in resource_arns]
     retained_volume_arns = [
         f'arn:aws:ec2:{region}:{account_id}:volume/{volume_id}'
-        for volume_id, volume_tags in paginate_and_search(
+        for volume_id, volume_tags in boto3_paginate(
             ec2,
             'describe_volumes',
             Filters=[
@@ -102,7 +96,7 @@ def remove_ec2_instances(session, region, resource_arns: list[str]) -> None:
                 },
                 {'Name': 'attachment.delete-on-termination', 'Values': ['false']},
             ],
-            SearchPath='Volumes[].[VolumeId,Tags]',
+            search='Volumes[].[VolumeId,Tags]',
         )
         if check_delete(boto3_tag_list_to_dict(volume_tags))
     ]
@@ -131,11 +125,10 @@ def query_ec2_network_interfaces(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
     interfaces = list(
-        paginate_and_search(
+        boto3_paginate(
             ec2,
             'describe_network_interfaces',
-            PaginationConfig={'PageSize': 500},
-            SearchPath='NetworkInterfaces[].[NetworkInterfaceId,TagSet]',
+            search='NetworkInterfaces[].[NetworkInterfaceId,TagSet]',
         )
     )
 
@@ -160,11 +153,10 @@ def query_ec2_security_groups(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
     security_groups = list(
-        paginate_and_search(
+        boto3_paginate(
             ec2,
             'describe_security_groups',
-            PaginationConfig={'PageSize': 500},
-            SearchPath='SecurityGroups[].[GroupId,GroupName,Tags]',
+            search='SecurityGroups[].[GroupId,GroupName,Tags]',
         )
     )
 
@@ -199,12 +191,11 @@ def query_ec2_snapshots(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
     snapshots = list(
-        paginate_and_search(
+        boto3_paginate(
             ec2,
             'describe_snapshots',
             OwnerIds=['self'],
-            PaginationConfig={'PageSize': 500},
-            SearchPath='Snapshots[].[SnapshotId,Tags]',
+            search='Snapshots[].[SnapshotId,Tags]',
         )
     )
 
@@ -229,12 +220,11 @@ def query_ec2_volumes(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
     volumes = list(
-        paginate_and_search(
+        boto3_paginate(
             ec2,
             'describe_volumes',
             Filters=[{'Name': 'status', 'Values': ['available']}],
-            PaginationConfig={'PageSize': 500},
-            SearchPath='Volumes[].[VolumeId,Tags]',
+            search='Volumes[].[VolumeId,Tags]',
         )
     )
 
@@ -259,11 +249,10 @@ def query_launch_templates(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
     templates = list(
-        paginate_and_search(
+        boto3_paginate(
             ec2,
             'describe_launch_templates',
-            PaginationConfig={'PageSize': 200},
-            SearchPath='LaunchTemplates[].[LaunchTemplateId,Tags]',
+            search='LaunchTemplates[].[LaunchTemplateId,Tags]',
         )
     )
 
@@ -289,11 +278,10 @@ def query_ec2_vpcs(session, region) -> list[str]:
     ec2 = session.client('ec2', region_name=region)
 
     vpcs = list(
-        paginate_and_search(
+        boto3_paginate(
             ec2,
             'describe_vpcs',
-            PaginationConfig={'PageSize': 200},
-            SearchPath='Vpcs[].[VpcId,Tags]',
+            search='Vpcs[].[VpcId,Tags]',
         )
     )
 
@@ -378,11 +366,10 @@ def query_ec2_dhcp_options(session, region) -> list[str]:
     ec2 = session.client('ec2', region_name=region)
 
     option_sets = list(
-        paginate_and_search(
+        boto3_paginate(
             ec2,
             'describe_dhcp_options',
-            PaginationConfig={'PageSize': 200},
-            SearchPath='DhcpOptions[].[DhcpOptionsId,Tags]',
+            search='DhcpOptions[].[DhcpOptionsId,Tags]',
         )
     )
 

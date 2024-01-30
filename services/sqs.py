@@ -1,9 +1,6 @@
-from lib.utils import (
-    check_delete,
-    get_account_id,
-    paginate_and_search,
-)
+from lib.utils import check_delete, get_account_id
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('SQS::Queue')
@@ -14,11 +11,10 @@ def query_sqs_queues(session, region) -> list[str]:
 
     queues = [
         queue_url
-        for queue_url in paginate_and_search(
+        for queue_url in boto3_paginate(
             sqs,
             'list_queues',
-            PaginationConfig={'PageSize': 500},
-            SearchPath='QueueUrls[]',
+            search='QueueUrls[]',
         )
         if queue_url is not None
     ]

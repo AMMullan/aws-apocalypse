@@ -1,16 +1,16 @@
-from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
+from lib.utils import boto3_tag_list_to_dict, check_delete
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('RDS::Instance')
 def query_rds_instances(session, region) -> list[str]:
     rds = session.client('rds', region_name=region)
     instances = list(
-        paginate_and_search(
+        boto3_paginate(
             rds,
             'describe_db_instances',
-            PaginationConfig={'PageSize': 100},
-            SearchPath='DBInstances[].[DBInstanceArn,TagList,Engine]',
+            search='DBInstances[].[DBInstanceArn,TagList,Engine]',
         )
     )
 
@@ -40,11 +40,10 @@ def remove_rds_instances(session, region, resource_arns: list[str]) -> None:
 def query_rds_clusters(session, region) -> list[str]:
     rds = session.client('rds', region_name=region)
     cluster = list(
-        paginate_and_search(
+        boto3_paginate(
             rds,
             'describe_db_clusters',
-            PaginationConfig={'PageSize': 100},
-            SearchPath='DBClusters[].[DBClusterArn,TagList,Engine]',
+            search='DBClusters[].[DBClusterArn,TagList,Engine]',
         )
     )
 

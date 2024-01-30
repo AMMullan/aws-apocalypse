@@ -1,5 +1,6 @@
-from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
+from lib.utils import boto3_tag_list_to_dict, check_delete
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('ECR::Repository')
@@ -8,11 +9,10 @@ def query_ecr_repositories(session, region) -> list[str]:
     resource_arns = []
 
     repositories = list(
-        paginate_and_search(
+        boto3_paginate(
             ecr,
             'describe_repositories',
-            PaginationConfig={'PageSize': 500},
-            SearchPath='repositories[].repositoryArn',
+            search='repositories[].repositoryArn',
         )
     )
 

@@ -1,16 +1,16 @@
-from lib.utils import check_delete, paginate_and_search
+from lib.utils import check_delete
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('ApiGatewayV2::Api')
 def query_apigatewayv2_apis(session, region) -> list[str]:
     apigateway = session.client('apigatewayv2', region_name=region)
     apis = list(
-        paginate_and_search(
+        boto3_paginate(
             apigateway,
             'get_apis',
-            PaginationConfig={'PageSize': 100},
-            SearchPath='Items[].[ApiId,Tags]',
+            search='Items[].[ApiId,Tags]',
         )
     )
 

@@ -1,5 +1,6 @@
-from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
+from lib.utils import boto3_tag_list_to_dict, check_delete
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('ElastiCache::CacheCluster')
@@ -8,11 +9,10 @@ def query_elasticache_clusters(session, region) -> list[str]:
     resource_arns = []
 
     clusters = list(
-        paginate_and_search(
+        boto3_paginate(
             elasticache,
             'describe_cache_clusters',
-            PaginationConfig={'PageSize': 100},
-            SearchPath='CacheClusters[].[ARN,CacheClusterId]',
+            search='CacheClusters[].[ARN,CacheClusterId]',
         )
     )
     for cluster_arn, cluster_id in clusters:
@@ -45,11 +45,10 @@ def query_elasticache_serverless_clusters(session, region) -> list[str]:
     resource_arns = []
 
     clusters = list(
-        paginate_and_search(
+        boto3_paginate(
             elasticache,
             'describe_serverless_caches',
-            PaginationConfig={'PageSize': 100},
-            SearchPath='ServerlessCaches[].[ARN,ServerlessCacheName]',
+            search='ServerlessCaches[].[ARN,ServerlessCacheName]',
         )
     )
     for (cluster_arn,) in clusters:

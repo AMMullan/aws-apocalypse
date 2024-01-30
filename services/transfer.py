@@ -1,5 +1,6 @@
-from lib.utils import boto3_tag_list_to_dict, check_delete, paginate_and_search
+from lib.utils import boto3_tag_list_to_dict, check_delete
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('Transfer::Server')
@@ -8,22 +9,20 @@ def query_transfer_servers(session, region) -> list[str]:
     resource_arns = []
 
     servers = list(
-        paginate_and_search(
+        boto3_paginate(
             transfer,
             'list_servers',
-            PaginationConfig={'PageSize': 100},
-            SearchPath='Servers[].Arn',
+            search='Servers[].Arn',
         )
     )
 
     for server_arn in servers:
         tags = list(
-            paginate_and_search(
+            boto3_paginate(
                 transfer,
                 'list_tags_for_resource',
                 Arn=server_arn,
-                PaginationConfig={'PageSize': 50},
-                SearchPath='Tags[]',
+                search='Tags[]',
             )
         )
 

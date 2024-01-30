@@ -1,5 +1,6 @@
-from lib.utils import check_delete, paginate_and_search
+from lib.utils import check_delete
 from registry.decorator import register_query_function, register_terminate_function
+from utils.aws import boto3_paginate
 
 
 @register_query_function('Logs::LogGroup')
@@ -9,11 +10,10 @@ def query_logs_loggroups(session, region) -> list[str]:
 
     log_groups = [
         group_arn[:-2]
-        for group_arn in paginate_and_search(
+        for group_arn in boto3_paginate(
             logs,
             'describe_log_groups',
-            PaginationConfig={'PageSize': 50},
-            SearchPath='logGroups[].arn',
+            search='logGroups[].arn',
         )
     ]
 
