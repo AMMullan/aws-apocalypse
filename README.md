@@ -74,7 +74,7 @@ Apocalypse supports inspecting and deleting the following AWS resources:
 
 When targeting specific services or resource types it's important to know that the **service** is the string BEFORE the colons, the **resource-type** is the whole resource type string.
 
-When specifing explicit inclusion/exclusion of services or resource types via the CLI or Config, the case of the resource type string is not imported.
+When specifing explicit inclusion/exclusion of services or resource types via the CLI or Config, the case of the resource type string is not important.
 
 You can pass either **inspect-aws** to Apocalypse to get a view of all, or targeted, resources in the AWS account or simply **aws** to nuke all/targeted resources. Passing the **\-\-list-resource-types** argument to either of these will simply give you a list of currently supported resource type strings.
 
