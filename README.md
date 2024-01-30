@@ -39,6 +39,7 @@ Apocalypse supports inspecting and deleting the following AWS resources:
 | EC2                     | Snapshots | EC2::Snapshot
 | EC2                     | Elastic IPs | EC2::EIP
 | EC2                     | Launch Templates |EC2::LaunchTemplate
+| EC2                     | VPCs |EC2::VPC
 | ECR                     | Repositories | ECR::Repository
 | ECS                     | Clusters | ECS::Cluster
 | EFS                     | File systems | EFS::FileSystem
