@@ -5,8 +5,10 @@
 
 AWS Apocalypse is a Python alternative to [cloud-nuke](https://github.com/gruntwork-io/cloud-nuke). It is designed to mimic (as best I can) the same CLI arguments and core functionality, whilst making it simpler to extend and maintain.
 
-### BEWARE!
-When executed as `apocalypse.py aws`, this tool is **HIGHLY DESTRUCTIVE** and deletes all resources in all regions! This mode should never be used in a production environment! Executing this script is will **permanently delete all resources** in your AWS account and is **irreversible**.
+> #### BEWARE!
+> When executed as `apocalypse.py aws`, this tool is **HIGHLY DESTRUCTIVE** and
+> deletes all resources in all regions! This mode should never be used in a production environment! Executing this script is will **permanently delete all resources** in your AWS
+> account and is **irreversible**.
 
 It is useful for situations where you have an AWS account you use for testing and need to clean up leftover resources so you're not charged for them.
 
