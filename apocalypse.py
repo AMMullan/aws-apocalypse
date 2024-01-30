@@ -41,11 +41,15 @@ def confirm_deletion():
             print("Invalid input. Please type 'yes' or 'no'.")
 
 
-def validate_regions(requested_regions: list | set, enabled_regions: list) -> list:
+def validate_regions(
+    requested_regions: list[str] | set[str], enabled_regions: list[str]
+) -> list[str]:
     return [region for region in requested_regions if region in enabled_regions]
 
 
-def exclude_regions(regions: list, excluded_regions: list | set) -> list:
+def exclude_regions(
+    regions: list[str], excluded_regions: list[str] | set[str]
+) -> list[str]:
     return [region for region in regions if region not in excluded_regions]
 
 
@@ -60,7 +64,7 @@ def check_account_compliance(account_id: str) -> None:
         raise SystemError('Can Only Operate On A Whitelisted Account')
 
 
-def get_resource_regions(session) -> set:
+def get_resource_regions(session) -> set[str]:
     enabled_regions = get_enabled_regions(session) + ['global']
     regions = (
         validate_regions(config.REGIONS, enabled_regions)
@@ -76,9 +80,14 @@ def get_resource_regions(session) -> set:
     return set(regions)
 
 
-def get_actionable_resource_types(
-    registry_services: list,
-) -> list:
+def get_actionable_resource_types(registry_services: list[str]) -> list[str]:
+    def warn_unsupported(
+        items: set[str], valid_items: set[str], item_type: str
+    ) -> None:
+        for item in items:
+            if item not in valid_items:
+                print(f'WARNING: Unsupported {item_type}: {item}')
+
     lower_registry_resource_types = {svc.lower() for svc in registry_services}
     lower_registry_services = {
         svc.split(':')[0] for svc in lower_registry_resource_types
@@ -88,15 +97,16 @@ def get_actionable_resource_types(
     include_resources_lower = {svc.lower() for svc in config.INCLUDE_RESOURCES}
     exclude_resources_lower = {svc.lower() for svc in config.EXCLUDE_RESOURCES}
 
-    # Check requested service(s) exist, otherwise raise a warning
-    for service in include_services_lower | exclude_services_lower:
-        if service not in lower_registry_services:
-            print(f'WARNING: Unsupported Service: {service}')
-
-    # Check requested resource(s) exist, otherwise raise a warning
-    for resource in include_resources_lower | exclude_resources_lower:
-        if resource not in lower_registry_resource_types:
-            print(f'WARNING: Unsupported Resource: {resource}')
+    warn_unsupported(
+        include_services_lower | exclude_services_lower,
+        lower_registry_services,
+        'Service',
+    )
+    warn_unsupported(
+        include_resources_lower | exclude_resources_lower,
+        lower_registry_resource_types,
+        'Resource',
+    )
 
     actionable = []
     for resource_type in registry_services:
