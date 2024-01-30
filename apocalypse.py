@@ -14,8 +14,8 @@ from rich.console import Console
 from config import config
 from config.cli_args import parse_args
 from config.config_file import parse_config_file
-from lib.utils import get_enabled_regions
 from registry import init_registry_resources, query_registry, terminate_registry
+from utils.aws import get_enabled_regions
 from view.output_handlers import JSONOutputHandler, OutputHandler, RichOutputHandler
 
 

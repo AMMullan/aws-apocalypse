@@ -1,6 +1,6 @@
-from lib.utils import check_delete, get_account_id
+from lib.utils import check_delete
 from registry.decorator import register_query_function, register_terminate_function
-from utils.aws import boto3_paginate
+from utils.aws import boto3_paginate, get_account_id
 
 
 @register_query_function('SQS::Queue')

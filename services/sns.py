@@ -1,6 +1,6 @@
-from lib.utils import boto3_tag_list_to_dict, check_delete
+from lib.utils import check_delete
 from registry.decorator import register_query_function, register_terminate_function
-from utils.aws import boto3_paginate
+from utils.aws import boto3_paginate, boto3_tag_list_to_dict
 
 
 @register_query_function('SNS::Topic')
