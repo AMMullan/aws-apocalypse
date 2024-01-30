@@ -53,7 +53,9 @@ def exclude_regions(
     return [region for region in regions if region not in excluded_regions]
 
 
-def check_account_compliance(account_id: str) -> None:
+def check_account_compliance(session) -> None:
+    account_id = session.client('sts').get_caller_identity()['Account']
+
     if account_id in config.BLACKLIST_ACCOUNTS:
         raise SystemError('Cannot Operate On A Blacklisted Account')
 
@@ -159,8 +161,7 @@ def main(args: argparse.Namespace) -> None:
         raise SystemError(f'Profile "{args.profile}" Not Found.') from e
 
     # Check that we're allowed to operate in this account.
-    account_id = session.client('sts').get_caller_identity()['Account']
-    check_account_compliance(account_id)
+    check_account_compliance(session)
 
     # Clear the screen - TODO: Should we make this optional?
     if args.output != 'json':
