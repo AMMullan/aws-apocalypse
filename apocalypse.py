@@ -4,6 +4,7 @@ import argparse
 # TODO:
 # - Do we need to batch up the terminate_instance API calls ??
 # - Remove snapshots after an AMI is removed
+# - At the moment, we merge the services/resource types from CLI/Config - should that change?
 import signal
 import sys
 
@@ -90,23 +91,20 @@ def get_actionable_resource_types(registry_services: list[str]) -> list[str]:
             if item not in valid_items:
                 print(f'WARNING: Unsupported {item_type}: {item}')
 
-    lower_registry_resource_types = {svc.lower() for svc in registry_services}
-    lower_registry_services = {
-        svc.split(':')[0] for svc in lower_registry_resource_types
-    }
-    include_services_lower = {svc.lower() for svc in config.INCLUDE_SERVICES}
-    exclude_services_lower = {svc.lower() for svc in config.EXCLUDE_SERVICES}
-    include_resources_lower = {svc.lower() for svc in config.INCLUDE_RESOURCES}
-    exclude_resources_lower = {svc.lower() for svc in config.EXCLUDE_RESOURCES}
+    registry_resource_types = {svc.lower() for svc in registry_services}
+    include_services = {svc.lower() for svc in config.INCLUDE_SERVICES}
+    exclude_services = {svc.lower() for svc in config.EXCLUDE_SERVICES}
+    include_resources = {svc.lower() for svc in config.INCLUDE_RESOURCES}
+    exclude_resources = {svc.lower() for svc in config.EXCLUDE_RESOURCES}
 
     warn_unsupported(
-        include_services_lower | exclude_services_lower,
-        lower_registry_services,
+        include_services | exclude_services,
+        {svc.split(':')[0] for svc in registry_resource_types},
         'Service',
     )
     warn_unsupported(
-        include_resources_lower | exclude_resources_lower,
-        lower_registry_resource_types,
+        include_resources | exclude_resources,
+        registry_resource_types,
         'Resource',
     )
 
@@ -114,22 +112,17 @@ def get_actionable_resource_types(registry_services: list[str]) -> list[str]:
     for resource_type in registry_services:
         resource_service = resource_type.split(':')[0].lower()
 
-        if resource_service in exclude_services_lower:
-            continue
+        if include_services and resource_service in include_services:
+            actionable.append(resource_type)
 
-        if resource_type.lower() in exclude_resources_lower:
-            continue
+        if include_resources and resource_type.lower() in include_resources:
+            actionable.append(resource_type)
 
-        if include_services_lower and resource_service not in include_services_lower:
-            continue
+        if resource_service in exclude_services and resource_type in actionable:
+            actionable.remove(resource_type)
 
-        if (
-            include_resources_lower
-            and resource_type.lower() not in include_resources_lower
-        ):
-            continue
-
-        actionable.append(resource_type)
+        if resource_type.lower() in exclude_resources and resource_type in actionable:
+            actionable.remove(resource_type)
 
     return actionable
 
@@ -198,4 +191,4 @@ def main(args: argparse.Namespace) -> None:
 if __name__ == '__main__':
     args = parse_args()
 
-    main(args)
+    main(args)  # type: ignore
