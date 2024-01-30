@@ -3,7 +3,6 @@ import argparse
 # Script to wipe AWS account - IMPORTANT, this script is _BRUTAL_ - use at your own risk
 # TODO:
 # - Do we need to batch up the terminate_instance API calls ??
-# - Remove snapshots after an AMI is removed
 # - At the moment, we merge the services/resource types from CLI/Config - should that change?
 import signal
 import sys

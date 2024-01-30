@@ -30,12 +30,29 @@ def query_ec2_images(session, region) -> list[str]:
 
 @register_terminate_function('EC2::Image')
 def remove_ec2_images(session, region, resource_arns: list[str]) -> None:
-    # TODO - Find, and remove, snapshots after an AMI is deregistered
+    account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
 
-    for image_arn in resource_arns:
-        image_id = image_arn.split('/')[-1]
+    image_ids = [image_arn.split('/')[-1] for image_arn in resource_arns]
+    image_detail = ec2.describe_images(ImageIds=image_ids)['Images']
+
+    snapshot_ids = []
+    for image in image_detail:
+        snapshot_ids.extend(
+            mapping['Ebs']['SnapshotId']
+            for mapping in image.get('BlockDeviceMappings', [])
+            if mapping.get('Ebs')
+        )
+
+        image_id = image['ImageId']
         ec2.deregister_image(ImageId=image_id)
+
+    # Remove AMI Snapshots after removal
+    snapshot_arns = [
+        f'arn:aws:ec2:{region}:{account_id}:image/{snapshot_id}'
+        for snapshot_id in snapshot_ids
+    ]
+    remove_ec2_snapshots(session, region, snapshot_arns)
 
 
 @register_query_function("EC2::Instance")
