@@ -15,7 +15,7 @@ from config import config
 from config.cli_args import parse_args
 from config.config_file import parse_config_file
 from lib.utils import get_enabled_regions
-from registry import load_resources, query_registry, terminate_registry
+from registry import init_registry_resources, query_registry, terminate_registry
 from view.output_handlers import JSONOutputHandler, OutputHandler, RichOutputHandler
 
 
@@ -140,9 +140,6 @@ def main(args: argparse.Namespace) -> None:
         log_path=False, log_time=False, color_system='truecolor', highlight=False
     )
 
-    # Load Resources from the Registry
-    load_resources()
-
     # Listing Resource Types
     if args.list_resource_types:
         console.print('# [yellow] Found AWS Resources\n')
@@ -197,5 +194,8 @@ def main(args: argparse.Namespace) -> None:
 # This will only ever trigger if the script is executed directly
 if __name__ == '__main__':
     args = parse_args()
+
+    # Load Resources from the Registry
+    init_registry_resources()
 
     main(args)

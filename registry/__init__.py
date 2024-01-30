@@ -7,7 +7,7 @@ query_registry: dict[str, Callable[..., None]] = {}
 terminate_registry: dict[str, Callable[..., None]] = {}
 
 
-def load_resources():
+def init_registry_resources():
     """Automatically detects all solutions in the project"""
     services = sorted(Path('services/').rglob("*.py"))
 
