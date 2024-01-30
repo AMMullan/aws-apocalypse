@@ -111,15 +111,23 @@ def get_actionable_resource_types(registry_services: list[str]) -> list[str]:
     for resource_type in registry_services:
         resource_service = resource_type.split(':')[0].lower()
 
+        # Check for specific services...
         if include_services and resource_service in include_services:
             actionable.append(resource_type)
 
+        # ... and resource types
         if include_resources and resource_type.lower() in include_resources:
             actionable.append(resource_type)
 
+        # If there are no specific ones, add everything in...
+        if not include_resources and not include_services:
+            actionable.append(resource_type)
+
+        # ... then remove any explicitly excluded services...
         if resource_service in exclude_services and resource_type in actionable:
             actionable.remove(resource_type)
 
+        # ... and resource types
         if resource_type.lower() in exclude_resources and resource_type in actionable:
             actionable.remove(resource_type)
 
