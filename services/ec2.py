@@ -400,3 +400,24 @@ def remove_ec2_dhcp_options(session, region, resource_arns: list[str]) -> None:
     for set_arn in resource_arns:
         set_id = set_arn.split('/')[-1]
         ec2.delete_dhcp_options(DhcpOptionsId=set_id)
+
+
+@register_query_function('EC2::EIP')
+def query_ec2_addresses(session, region) -> list[str]:
+    account_id = get_account_id(session)
+    ec2 = session.client('ec2', region_name=region)
+    addresses = ec2.describe_addresses()['Addresses']
+    return [
+        f'arn:aws:ec2:{region}:{account_id}:eip-allocation/{address["AllocationId"]}'
+        for address in addresses
+        if not address.get('AssociationId')
+    ]
+
+
+@register_terminate_function('EC2::EIP')
+def remove_ec2_addresses(session, region, resource_arns: list[str]) -> None:
+    ec2 = session.client('ec2', region_name=region)
+
+    for eip_arn in resource_arns:
+        allocation_id = eip_arn.split('/')[-1]
+        ec2.release_address(AllocationId=allocation_id)
