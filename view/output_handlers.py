@@ -26,7 +26,7 @@ class OutputHandler(ABC):
 
 class JSONOutputHandler(OutputHandler):
     def retrieve_data(
-        self, resource_types: list[str], regions: list[str]
+        self, resource_types: list[str], regions: list[str] | set[str]
     ) -> dict[str, dict[str, dict]]:
         resource_output = {}
 
@@ -62,7 +62,7 @@ class RichOutputHandler(OutputHandler):
         self.console.print(table)
 
     def retrieve_data(
-        self, resource_types: list[str], regions: list[str]
+        self, resource_types: list[str], regions: list[str] | set[str]
     ) -> dict[str, dict[str, dict]]:
         resource_output = {}
 
