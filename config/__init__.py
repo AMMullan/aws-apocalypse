@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 @dataclass
 class Config:
     ALLOW_EXCEPTIONS: bool = False
-    EXCEPTION_TAGS: list[str] = field(default_factory=lambda: ['exempt:nuke'])
+    EXCEPTION_TAGS: set[str] = field(default_factory=lambda: {'exempt:nuke'})
 
     # Script will NOT operate in these accounts
     BLACKLIST_ACCOUNTS: list[str] = field(default_factory=list)
@@ -39,7 +39,7 @@ class Config:
         self.WHITELIST_ACCOUNTS.append(account_id)
 
     def add_custom_exception_tag(self, tag: str) -> None:
-        self.EXCEPTION_TAGS.append(tag)
+        self.EXCEPTION_TAGS.add(tag)
 
     def add_included_resource(self, resource: str) -> None:
         self.INCLUDE_RESOURCES.append(resource)
