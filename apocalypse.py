@@ -218,6 +218,8 @@ def main(script_args: Optional[dict] = None) -> None:
     # Check that we're allowed to operate in this account.
     try:
         check_account_compliance(session)
+    except SystemError:
+        raise
     except Exception as e:
         print('No AWS Access | Please pass an AWS Profile')
         raise SystemExit from e
