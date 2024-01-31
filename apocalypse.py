@@ -21,6 +21,17 @@ from view.output_handlers import JSONOutputHandler, OutputHandler, RichOutputHan
 
 # Define the signal handler
 def signal_handler(sig, frame):
+    """
+    Handle the Ctrl+C signal and exit gracefully.
+
+    Args:
+        sig: The signal number.
+        frame: The current stack frame.
+
+    Returns:
+        None
+
+    """
     print('\nCtrl+C pressed. Exiting gracefully...')
     # Perform any necessary cleanup here
     sys.exit(0)
@@ -31,6 +42,13 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 def confirm_deletion():
+    """
+    Prompt the user to confirm deletion.
+
+    Returns:
+        bool: True if the user confirms deletion, False otherwise.
+
+    """
     while True:
         response = input("Are you sure you want to delete? (yes/no): ").strip().lower()
         if response == "yes":
@@ -42,6 +60,16 @@ def confirm_deletion():
 
 
 def check_account_compliance(session) -> None:
+    """
+    Check the compliance of the AWS account.
+
+    Args:
+        session: The Boto3 session object.
+
+    Raises:
+        SystemError: If the account is blacklisted or not whitelisted.
+
+    """
     account_id = session.client('sts').get_caller_identity()['Account']
 
     if account_id in config.BLACKLIST_ACCOUNTS:
@@ -55,15 +83,48 @@ def check_account_compliance(session) -> None:
 
 
 def validate_and_filter_regions(enabled_regions) -> None:
+    """
+    Validate and filter the enabled regions passed into configuration.
+
+    Args:
+        enabled_regions: A list of enabled regions.
+
+    Returns:
+        None
+
+    """
     for region in list(config.REGIONS):
         if region not in enabled_regions:
             config.remove_region(region)
 
 
 def get_actionable_resource_types(registry_services: list[str]) -> list[str]:
+    """
+    Get the actionable resource types based on the provided registry services.
+
+    Args:
+        registry_services (list[str]): The list of registry services.
+
+    Returns:
+        list[str]: The list of actionable resource types.
+
+    """
+
     def warn_unsupported(
         items: set[str], valid_items: set[str], item_type: str
     ) -> None:
+        """
+        Print a warning for unsupported items.
+
+        Args:
+            items (set[str]): The set of items to check.
+            valid_items (set[str]): The set of valid items.
+            item_type (str): The type of items.
+
+        Returns:
+            None
+
+        """
         for item in items:
             if item not in valid_items:
                 print(f'WARNING: Unsupported {item_type}: {item}')
@@ -113,6 +174,16 @@ def get_actionable_resource_types(registry_services: list[str]) -> list[str]:
 
 
 def main(script_args: Optional[dict] = None) -> None:
+    """
+    The main entry point of the AWS Apocalypse script.
+
+    Args:
+        script_args (Optional[dict]): Optional script arguments.
+
+    Returns:
+        None
+
+    """
     if not script_args:
         script_args = {}
 
@@ -162,8 +233,6 @@ def main(script_args: Optional[dict] = None) -> None:
         for region in enabled_regions:
             config.add_region(region)
 
-    console.print(config)
-    return
     resource_types = get_actionable_resource_types(list(query_registry.keys()))
     if not resource_types:
         print("No Valid Resources")
