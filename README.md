@@ -78,6 +78,11 @@ When specifing explicit inclusion/exclusion of services or resource types via th
 
 You can pass either **inspect-aws** to Apocalypse to get a view of all, or targeted, resources in the AWS account or simply **aws** to nuke all/targeted resources. Passing the **\-\-list-resource-types** argument to either of these will simply give you a list of currently supported resource type strings.
 
+Configuration Presedence is:
+1. CLI Arguments
+2. Config
+3. Environment Variables
+
 #### CLI Arguments
 | Parameter  | Description | Allows Multiple |
 |--|--|--|
@@ -101,13 +106,28 @@ You can pass either **inspect-aws** to Apocalypse to get a view of all, or targe
     "allow_exceptions": true,
     "custom_exception_tags": [],
     "regions": [],
+    "exclude_regions": [],
+    "services": [],
     "exclude_services": [],
     "exclude_resource_types": [],
-    "resource_types": [],
-    "services": []
+    "resource_types": []
 }
 ```
 When using a configuration file you can specifically blacklist, or whitelist, accounts that Apocalypse can be executed in.
+
+#### Environment Variables
+| Variable Name | Example
+|---------------|--------
+| NUKE_COMMAND | *inspect-aws* or *aws*
+| NUKE_REGIONS | *eu-west-1,us-east-1,global*
+| NUKE_EXCLUDE_REGIONS | *global,ap-southeast-1*
+| NUKE_ALLOW_EXCEPTIONS | *true* (leave for false)
+| NUKE_EXCEPTION_TAGS | *DoNotDelete,another-tag*
+| NUKE_SERVICES | *iam,ec2*
+| NUKE_EXCLUDE_SERVICES | *ec2,lambda*
+| NUKE_RESOURCE_TYPES | *ec2::instance,RDS::Cluster*
+| NUKE_EXCLUDE_RESOURCE_TYPES | *ec2::instance,rds:Cluster*
+
 
 ## Extending
 We use the **Registry** pattern to add a new service/resource type to Apocalypse. You simply need to create 2 new functions in an appropriate .py file in the **services/** folder. These functions need to be decorated with the *register_query_function* and *register_terminate_function* and ensure that the parameters match the existing ones (session and region for both, and resource_arns for the terminate function).

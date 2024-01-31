@@ -1,11 +1,10 @@
-import argparse
-
 # Script to wipe AWS account - IMPORTANT, this script is _BRUTAL_ - use at your own risk
 # TODO:
 # - Do we need to batch up the terminate_instance API calls ??
 # - At the moment, we merge the services/resource types from CLI/Config - should that change?
 import signal
 import sys
+from typing import Optional
 
 import boto3
 import botocore
@@ -13,6 +12,7 @@ from rich.console import Console
 
 from config import config
 from config.cli_args import parse_args
+from config.config_environment import parse_environment_config
 from config.config_file import parse_config_file
 from registry import init_registry_resources, query_registry, terminate_registry
 from utils.aws import get_enabled_regions
@@ -41,18 +41,6 @@ def confirm_deletion():
             print("Invalid input. Please type 'yes' or 'no'.")
 
 
-def validate_regions(
-    requested_regions: list[str] | set[str], enabled_regions: list[str]
-) -> list[str]:
-    return [region for region in requested_regions if region in enabled_regions]
-
-
-def exclude_regions(
-    regions: list[str], excluded_regions: list[str] | set[str]
-) -> list[str]:
-    return [region for region in regions if region not in excluded_regions]
-
-
 def check_account_compliance(session) -> None:
     account_id = session.client('sts').get_caller_identity()['Account']
 
@@ -66,20 +54,10 @@ def check_account_compliance(session) -> None:
         raise SystemError('Can Only Operate On A Whitelisted Account')
 
 
-def get_resource_regions(session) -> set[str]:
-    enabled_regions = get_enabled_regions(session) + ['global']
-    regions = (
-        validate_regions(config.REGIONS, enabled_regions)
-        if config.REGIONS
-        else enabled_regions
-    )
-    regions = (
-        exclude_regions(regions, config.EXCLUDE_REGIONS)
-        if config.EXCLUDE_REGIONS
-        else regions
-    )
-
-    return set(regions)
+def validate_and_filter_regions(enabled_regions) -> None:
+    for region in list(config.REGIONS):
+        if region not in enabled_regions:
+            config.remove_region(region)
 
 
 def get_actionable_resource_types(registry_services: list[str]) -> list[str]:
@@ -134,44 +112,64 @@ def get_actionable_resource_types(registry_services: list[str]) -> list[str]:
     return actionable
 
 
-def main(args: argparse.Namespace) -> None:
+def main(script_args: Optional[dict] = None) -> None:
+    if not script_args:
+        script_args = {}
+
     # Setup Rich Console
     console = Console(
         log_path=False, log_time=False, color_system='truecolor', highlight=False
     )
 
+    # Load Resources from the Registry
+    init_registry_resources()
+
     # Listing Resource Types
-    if args.list_resource_types:
+    if script_args.get('list_resource_types'):
         console.print('# [yellow] Found AWS Resources\n')
         for service in sorted(query_registry.keys()):
             console.print('[grey35]•[/grey35]', f'{service}')
         return
 
-    if args.config:
-        parse_config_file(args.config)
+    if config_file := script_args.get('config'):
+        parse_config_file(config_file)
+
+    parse_environment_config()
 
     # Establish a boto3 session
+    profile = script_args.get('profile')
     try:
-        session_args = {'profile_name': args.profile} if args.profile else {}
+        session_args = {'profile_name': profile} if profile else {}
         session = boto3.session.Session(**session_args)  # type: ignore
     except botocore.exceptions.ProfileNotFound as e:  # type: ignore
-        raise SystemError(f'Profile "{args.profile}" Not Found.') from e
+        raise SystemError(f'Profile "{args.get(profile)}" Not Found.') from e
 
     # Check that we're allowed to operate in this account.
-    check_account_compliance(session)
+    try:
+        check_account_compliance(session)
+    except Exception as e:
+        print('No AWS Access | Please pass an AWS Profile')
+        raise SystemExit from e
 
     # Clear the screen - TODO: Should we make this optional?
-    if args.output != 'json':
+    if config.OUTPUT_FORMAT != 'json':
         console.clear()
 
-    config.REGIONS = get_resource_regions(session)
+    enabled_regions = get_enabled_regions(session) + ['global']
+    if config.REGIONS:
+        validate_and_filter_regions(enabled_regions)
+    else:
+        for region in enabled_regions:
+            config.add_region(region)
 
+    console.print(config)
+    return
     resource_types = get_actionable_resource_types(list(query_registry.keys()))
     if not resource_types:
         print("No Valid Resources")
         return
 
-    match args.output:
+    match config.OUTPUT_FORMAT:
         case 'json':
             handler: OutputHandler = JSONOutputHandler(session)
         case 'rich':
@@ -180,7 +178,7 @@ def main(args: argparse.Namespace) -> None:
             raise ValueError('Invalid Output Method')
 
     retrieved_resources = handler.retrieve_data(resource_types, config.REGIONS)
-    if not retrieved_resources or args.command == 'inspect-aws':
+    if not retrieved_resources or config.COMMAND == 'inspect-aws':
         return
 
     if not confirm_deletion():
@@ -191,11 +189,22 @@ def main(args: argparse.Namespace) -> None:
             terminate_registry[resource_type](session, region, resource_arns)
 
 
+def lambda_handler(event: dict, context: "awslambdaric.lambda_context.LambdaContext"):
+    """
+    Entry point for the AWS Lambda function.
+
+    Args:
+        event (dict): The event data passed to the Lambda function.
+        context (LambdaContext): The context object representing the runtime information.
+
+    Returns:
+        None
+
+    """
+    main()
+
+
 # This will only ever trigger if the script is executed directly
 if __name__ == '__main__':
     args = parse_args()
-
-    # Load Resources from the Registry
-    init_registry_resources()
-
     main(args)

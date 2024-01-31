@@ -7,6 +7,12 @@ from . import config
 def parse_config_file(config_file: Path) -> None:
     json_config = json.loads(config_file.read_text())
 
+    if config_command := json_config.get('command'):
+        if config_command in ['rich', 'json']:
+            config.COMMAND = config_command
+        else:
+            config.COMMAND = 'json'
+
     for account_id in json_config.get('blacklisted_accounts', []):
         config.add_blacklisted_account(account_id)
 
@@ -20,10 +26,10 @@ def parse_config_file(config_file: Path) -> None:
         config.add_custom_exception_tag(exception)
 
     for region in json_config.get('regions', []):
-        config.REGIONS.add(region)
+        config.add_region(region)
 
     for region in json_config.get('exclude_regions', []):
-        config.EXCLUDE_REGIONS.add(region)
+        config.remove_region(region)
 
     for service in json_config.get('resource_types', []):
         config.add_included_resource(service)

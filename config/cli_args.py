@@ -12,7 +12,44 @@ def is_valid_file(parser, arg):
     return Path(arg)
 
 
-def parse_args() -> argparse.Namespace:  # sourcery skip: extract-duplicate-method
+def add_common_arguments(parser):
+    parser.add_argument(
+        '--allow-exceptions', help='Allow Exceptions', action='store_true'
+    )
+    parser.add_argument(
+        '--exception-tag', help='Exception Tag', action='append', default=[]
+    )
+    parser.add_argument('--region', help='AWS Region', action='append', default=[])
+    parser.add_argument(
+        '--exclude-region', help='AWS Region', action='append', default=[]
+    )
+    parser.add_argument(
+        '--resource-type',
+        help='Included Resource Types',
+        action='append',
+        default=[],
+    )
+    parser.add_argument(
+        '--service',
+        help='Specific AWS Service',
+        action='append',
+        default=[],
+    )
+    parser.add_argument(
+        '--exclude-resource-type',
+        help='Exclude Resource Type',
+        action='append',
+        default=[],
+    )
+    parser.add_argument(
+        '--exclude-service',
+        help='Exclude Specific AWS Service',
+        action='append',
+        default=[],
+    )
+
+
+def parse_args() -> dict:
     global_parser = argparse.ArgumentParser(add_help=False)
     global_parser.add_argument(
         '-v',
@@ -46,87 +83,30 @@ def parse_args() -> argparse.Namespace:  # sourcery skip: extract-duplicate-meth
     main_parser = argparse.ArgumentParser(parents=[global_parser])
     subparsers = main_parser.add_subparsers(dest='command', required=False)
 
+    # Arguments for 'inspect-aws' command
+    command_inspect = subparsers.add_parser(
+        'inspect-aws',
+        parents=[global_parser],
+        help='(default) Non-destructive inspection of target resources only',
+    )
+
     # Arguments for 'aws' command
     command_aws = subparsers.add_parser(
         'aws',
         parents=[global_parser],
         help='BEWARE: DESTRUCTIVE OPERATION! Nukes AWS resources',
     )
-    command_aws.add_argument(
-        '--allow-exceptions', help='Allow Exceptions', action='store_true'
-    )
-    command_aws.add_argument('--exception-tag', help='Exception Tag', action='append')
-    command_aws.add_argument('--region', help='AWS Region', action='append')
-    command_aws.add_argument('--exclude-region', help='AWS Region', action='append')
-    command_aws.add_argument(
-        '--resource-type',
-        help='Included Resource Types',
-        action='append',
-        default=[],
-    )
-    command_aws.add_argument(
-        '--service',
-        help='Search Search Specific AWS Service',
-        action='append',
-        default=[],
-    )
-    command_aws.add_argument(
-        '--exclude-resource-type',
-        help='Exclude Resource Type',
-        action='append',
-        default=[],
-    )
-    command_aws.add_argument(
-        '--exclude-service',
-        help='Exclude Specific AWS Service',
-        action='append',
-        default=[],
-    )
 
-    # Arguments for 'inspect-aws' command
-    command_inspect = subparsers.add_parser(
-        'inspect-aws',
-        parents=[global_parser],
-        help='Non-destructive inspection of target resources only',
-    )
-    command_inspect.add_argument(
-        '--allow-exceptions', help='Allow Exceptions', action='store_true'
-    )
-    command_inspect.add_argument(
-        '--exception-tag', help='Exception Tag', action='append'
-    )
-    command_inspect.add_argument('--region', help='AWS Region', action='append')
-    command_inspect.add_argument('--exclude-region', help='AWS Region', action='append')
-    command_inspect.add_argument(
-        '--resource-type',
-        help='Included Resource Types',
-        action='append',
-        default=[],
-    )
-    command_inspect.add_argument(
-        '--service',
-        help='Specific AWS Service',
-        action='append',
-        default=[],
-    )
-    command_inspect.add_argument(
-        '--exclude-resource-type',
-        help='Exclude Resource Type',
-        action='append',
-        default=[],
-    )
-    command_inspect.add_argument(
-        '--exclude-service',
-        help='Exclude Specific AWS Service',
-        action='append',
-        default=[],
-    )
+    add_common_arguments(command_inspect)
+    add_common_arguments(command_aws)
 
     args = main_parser.parse_args()
 
-    if not args.command and not args.list_resource_types:
-        main_parser.print_help()
-        raise SystemExit
+    if args.command is None:
+        config.COMMAND = 'inspect-aws'
+        args = command_inspect.parse_args()
+    else:
+        config.COMMAND = args.command
 
     # Add Global Arguments here
     args.profile = global_args.profile
@@ -135,15 +115,17 @@ def parse_args() -> argparse.Namespace:  # sourcery skip: extract-duplicate-meth
 
     # If we're doing a --list-resource-types, return early so we can just list resources
     if args.list_resource_types:
-        return args
+        return vars(args)
+
+    config.OUTPUT_FORMAT = args.output
 
     if args.region:
         for region in args.region:
-            config.REGIONS.add(region)
+            config.add_region(region)
 
     if args.exclude_region:
         for region in args.exclude_region:
-            config.EXCLUDE_REGIONS.add(region)
+            config.remove_region(region)
 
     if args.resource_type:
         for resource in args.resource_type:
@@ -166,4 +148,4 @@ def parse_args() -> argparse.Namespace:  # sourcery skip: extract-duplicate-meth
         if args.exception_tag:
             config.add_custom_exception_tag(args.exception_tag)
 
-    return args
+    return vars(args)
