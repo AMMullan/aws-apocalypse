@@ -260,7 +260,9 @@ def main(script_args: Optional[dict] = None) -> None:
             terminate_registry[resource_type](session, region, resource_arns)
 
 
-def lambda_handler(event: dict, context: "awslambdaric.lambda_context.LambdaContext"):
+def lambda_handler(
+    event: dict, context: "awslambdaric.lambda_context.LambdaContext"  # noqa: F821
+):
     """
     Entry point for the AWS Lambda function.
 
