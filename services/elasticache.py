@@ -1,6 +1,6 @@
-from utils.general import check_delete
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_paginate, boto3_tag_list_to_dict
+from utils.general import check_delete
 
 
 @register_query_function('ElastiCache::CacheCluster')
@@ -48,10 +48,10 @@ def query_elasticache_serverless_clusters(session, region) -> list[str]:
         boto3_paginate(
             elasticache,
             'describe_serverless_caches',
-            search='ServerlessCaches[].[ARN,ServerlessCacheName]',
+            search='ServerlessCaches[].ARN',
         )
     )
-    for (cluster_arn,) in clusters:
+    for cluster_arn in clusters:
         try:
             cluster_tags = elasticache.list_tags_for_resource(ResourceName=cluster_arn)[
                 'TagList'
