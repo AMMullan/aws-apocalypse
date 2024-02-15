@@ -67,7 +67,7 @@ class RichOutputHandler(OutputHandler):
         resource_output = {}
 
         for resource_type in resource_types:
-            delete_function = query_registry[resource_type]
+            retrieve_function = query_registry[resource_type]
             for region in regions:
                 if (
                     region == 'global' and resource_type not in config.GLOBAL_RESOURCES
@@ -78,7 +78,7 @@ class RichOutputHandler(OutputHandler):
                     f'[bold green]Searching {region} For {resource_type}',
                     spinner='aesthetic',
                 ):
-                    if results := delete_function(self.session, region):
+                    if results := retrieve_function(self.session, region):
                         resource_output.setdefault(region, {}).update(
                             {resource_type: results}
                         )

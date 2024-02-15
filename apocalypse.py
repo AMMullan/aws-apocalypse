@@ -50,13 +50,8 @@ def confirm_deletion():
 
     """
     while True:
-        response = input("Are you sure you want to delete? (yes/no): ").strip().lower()
-        if response == "yes":
-            return True
-        elif response == "no":
-            return False
-        else:
-            print("Invalid input. Please type 'yes' or 'no'.")
+        response = input('Are you sure you want to delete? (yes/no): ').strip().lower()
+        return response == 'yes'
 
 
 def check_account_compliance(session) -> None:
@@ -237,14 +232,15 @@ def main(script_args: Optional[dict] = None) -> None:
 
     resource_types = get_actionable_resource_types(list(query_registry.keys()))
     if not resource_types:
-        print("No Valid Resources")
+        print('No Valid Resources')
         return
 
+    handler: OutputHandler
     match config.OUTPUT_FORMAT:
         case 'json':
-            handler: OutputHandler = JSONOutputHandler(session)
+            handler = JSONOutputHandler(session)
         case 'rich':
-            handler: OutputHandler = RichOutputHandler(session, console)
+            handler = RichOutputHandler(session, console)
         case _:
             raise ValueError('Invalid Output Method')
 
@@ -261,7 +257,8 @@ def main(script_args: Optional[dict] = None) -> None:
 
 
 def lambda_handler(
-    event: dict, context: "awslambdaric.lambda_context.LambdaContext"  # noqa: F821
+    event: dict,
+    context: 'awslambdaric.lambda_context.LambdaContext',  # noqa: F821
 ):
     """
     Entry point for the AWS Lambda function.
