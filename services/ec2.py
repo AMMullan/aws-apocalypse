@@ -1,6 +1,6 @@
-from utils.general import check_delete
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_paginate, boto3_tag_list_to_dict, get_account_id
+from utils.general import check_delete
 
 
 @register_query_function('EC2::Image')
@@ -31,7 +31,7 @@ def remove_ec2_images(session, region, resource_arns: list[str]) -> None:
     image_ids = [image_arn.split('/')[-1] for image_arn in resource_arns]
     image_detail = ec2.describe_images(ImageIds=image_ids)['Images']
 
-    snapshot_ids = []
+    snapshot_ids: list[str] = []
     for image in image_detail:
         snapshot_ids.extend(
             mapping['Ebs']['SnapshotId']
@@ -50,7 +50,7 @@ def remove_ec2_images(session, region, resource_arns: list[str]) -> None:
     remove_ec2_snapshots(session, region, snapshot_arns)
 
 
-@register_query_function("EC2::Instance")
+@register_query_function('EC2::Instance')
 def query_ec2_instances(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
@@ -77,7 +77,7 @@ def query_ec2_instances(session, region) -> list[str]:
         return []
 
 
-@register_terminate_function("EC2::Instance")
+@register_terminate_function('EC2::Instance')
 def remove_ec2_instances(session, region, resource_arns: list[str]) -> None:
     # TODO - Do we need to batch the terminate instances ??
     account_id = get_account_id(session)
@@ -120,7 +120,7 @@ def remove_ec2_instances(session, region, resource_arns: list[str]) -> None:
     remove_ec2_volumes(session, region, retained_volume_arns)
 
 
-@register_query_function("EC2::NetworkInterface")
+@register_query_function('EC2::NetworkInterface')
 def query_ec2_network_interfaces(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
@@ -128,18 +128,18 @@ def query_ec2_network_interfaces(session, region) -> list[str]:
         boto3_paginate(
             ec2,
             'describe_network_interfaces',
-            search='NetworkInterfaces[].[NetworkInterfaceId,TagSet]',
+            search='NetworkInterfaces[].[NetworkInterfaceId,Attachment,TagSet]',
         )
     )
 
     return [
         f'arn:aws:ec2:{region}:{account_id}:network-interface/{interface_id}'
-        for interface_id, interface_tags in interfaces
-        if check_delete(boto3_tag_list_to_dict(interface_tags))
+        for interface_id, attachment, interface_tags in interfaces
+        if attachment is None and check_delete(boto3_tag_list_to_dict(interface_tags))
     ]
 
 
-@register_terminate_function("EC2::NetworkInterface")
+@register_terminate_function('EC2::NetworkInterface')
 def remove_ec2_network_interfaces(session, region, resource_arns: list[str]) -> None:
     ec2 = session.client('ec2', region_name=region)
 
@@ -148,10 +148,11 @@ def remove_ec2_network_interfaces(session, region, resource_arns: list[str]) -> 
         ec2.delete_network_interface(NetworkInterfaceId=interface_id)
 
 
-@register_query_function("EC2::SecurityGroup")
+@register_query_function('EC2::SecurityGroup')
 def query_ec2_security_groups(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
+
     security_groups = list(
         boto3_paginate(
             ec2,
@@ -167,26 +168,49 @@ def query_ec2_security_groups(session, region) -> list[str]:
     ]
 
 
-@register_terminate_function("EC2::SecurityGroup")
+@register_terminate_function('EC2::SecurityGroup')
 def remove_ec2_security_groups(session, region, resource_arns: list[str]) -> None:
     ec2 = session.client('ec2', region_name=region)
 
+    def remove_references_and_wipe_sg(group_id: str) -> None:
+        groups = boto3_paginate(
+            ec2, 'describe_security_groups', search='SecurityGroups[]'
+        )
+
+        sg_operations = {
+            'IpPermissions': ec2.revoke_security_group_ingress,
+            'IpPermissionsEgress': ec2.revoke_security_group_egress,
+        }
+
+        for sg in groups:
+            # Wipe the Security Group itself
+            if sg['GroupId'] == group_id:
+                for op_name, op_func in sg_operations.items():
+                    for ip_permission in sg.get(op_name, []):
+                        op_func(GroupId=group_id, IpPermissions=[ip_permission])
+                continue
+
+            # Check each rule for a reference to the target security group and remove
+            for op_name, op_func in sg_operations.items():
+                for ip_permission in sg.get(op_name, []):
+                    for user_id_group_pair in ip_permission.get('UserIdGroupPairs', []):
+                        if user_id_group_pair['GroupId'] == group_id:
+                            # If reference found, remove it
+                            print(f"Removing reference from {sg['GroupId']}")
+                            op_func(
+                                GroupId=sg['GroupId'], IpPermissions=[ip_permission]
+                            )
+
+    # Remove any ingress rule references
     for group_arn in resource_arns:
         group_id = group_arn.split('/')[-1]
 
-        group_detail = ec2.describe_security_groups(GroupIds=[group_id])[
-            'SecurityGroups'
-        ]
-        if perms := group_detail.get('IpPermissions', []):
-            ec2.revoke_security_group_ingress(GroupId=group_id, IpPermissions=perms)
-
-        if perms := group_detail.get('IpPermissionsEgress', []):
-            ec2.revoke_security_group_egress(GroupId=group_id, IpPermissions=perms)
+        remove_references_and_wipe_sg(group_id)
 
         ec2.delete_security_group(GroupId=group_id)
 
 
-@register_query_function("EC2::Snapshot")
+@register_query_function('EC2::Snapshot')
 def query_ec2_snapshots(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
@@ -206,7 +230,7 @@ def query_ec2_snapshots(session, region) -> list[str]:
     ]
 
 
-@register_terminate_function("EC2::Snapshot")
+@register_terminate_function('EC2::Snapshot')
 def remove_ec2_snapshots(session, region, resource_arns: list[str]) -> None:
     ec2 = session.client('ec2', region_name=region)
 
@@ -215,7 +239,7 @@ def remove_ec2_snapshots(session, region, resource_arns: list[str]) -> None:
         ec2.delete_snapshot(SnapshotId=snapshot_id)
 
 
-@register_query_function("EC2::Volume")
+@register_query_function('EC2::Volume')
 def query_ec2_volumes(session, region) -> list[str]:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
@@ -235,7 +259,7 @@ def query_ec2_volumes(session, region) -> list[str]:
     ]
 
 
-@register_terminate_function("EC2::Volume")
+@register_terminate_function('EC2::Volume')
 def remove_ec2_volumes(session, region, resource_arns: list[str]) -> None:
     ec2 = session.client('ec2', region_name=region)
 
@@ -302,7 +326,7 @@ def remove_ec2_vpcs(session, region, resource_arns: list[str]) -> None:
         vpc = ec2.Vpc(vpc_id)
 
         gateways = []
-        eip_allocations = []
+        eip_allocations: list[str] = []
         for gateway in ec2_c.describe_nat_gateways(
             Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}]
         )['NatGateways']:
@@ -317,20 +341,20 @@ def remove_ec2_vpcs(session, region, resource_arns: list[str]) -> None:
         for gateway_id in gateways:
             ec2_c.delete_nat_gateway(NatGatewayId=gateway_id)
 
-        # Wait for NAT Gateways to be removed
-        ec2_c.get_waiter('nat_gateway_deleted').wait(NatGatewayIds=gateways)
+        if gateways:
+            # Wait for NAT Gateways to be removed
+            ec2_c.get_waiter('nat_gateway_deleted').wait(NatGatewayIds=gateways)
 
         for eip_allocation in eip_allocations:
             ec2_c.release_address(AllocationId=eip_allocation)
 
-        # Delete VPC Endpoints
-        endpoints = [
+        if endpoints := [
             endpoint['VpcEndpointId']
             for endpoint in ec2_c.describe_vpc_endpoints(
                 Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}]
             )['VpcEndpoints']
-        ]
-        ec2_c.delete_vpc_endpoints(VpcEndpointIds=endpoints)
+        ]:
+            ec2_c.delete_vpc_endpoints(VpcEndpointIds=endpoints)
 
         for subnet in vpc.subnets.all():
             subnet.delete()
@@ -350,11 +374,10 @@ def remove_ec2_vpcs(session, region, resource_arns: list[str]) -> None:
                 acl.delete()
 
         for route_table in vpc.route_tables.all():
-            main = any(
+            if not any(
                 association['Main']
                 for association in route_table.associations_attribute
-            )
-            if not main:
+            ):
                 route_table.delete()
 
         vpc.delete()
