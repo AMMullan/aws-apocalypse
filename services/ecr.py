@@ -1,6 +1,6 @@
-from utils.general import check_delete
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_paginate, boto3_tag_list_to_dict
+from utils.general import check_delete
 
 
 @register_query_function('ECR::Repository')
@@ -30,4 +30,5 @@ def remove_ecr_repositories(session, region, resource_arns: list[str]) -> None:
     ecr = session.client('ecr', region_name=region)
 
     for repo_arn in resource_arns:
-        ecr.delete_repository(repositoryArn=repo_arn, force=True)
+        repo_name = repo_arn.split('/')[-1]
+        ecr.delete_repository(repositoryName=repo_name, force=True)
