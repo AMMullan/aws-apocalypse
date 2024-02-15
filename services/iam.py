@@ -1,6 +1,8 @@
-from utils.general import check_delete
+import botocore.exceptions
+
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_tag_list_to_dict
+from utils.general import check_delete
 
 
 @register_query_function('IAM::User')
@@ -70,15 +72,21 @@ def remove_iam_roles(session, region, resource_arns: list[str]) -> None:
         role = iam.Role(role_name)
 
         for policy in role.attached_policies.all():
-            policy.detach_role(RoleName=role.name)
+            try:
+                policy.detach_role(RoleName=role.name)
+            except botocore.exceptions.ClientError:
+                print(
+                    f'Failed To Detach Role Policy ({policy.policy_name}) From {role_arn}.'
+                )
+                break
+        else:
+            for policy in role.policies.all():
+                policy.delete()
 
-        for policy in role.policies.all():
-            policy.delete()
+            for instance_profile in role.instance_profiles.all():
+                instance_profile.remove_role(RoleName=role.name)
 
-        for instance_profile in role.instance_profiles.all():
-            instance_profile.remove_role(RoleName=role.name)
-
-        role.delete()
+            role.delete()
 
 
 @register_query_function('IAM::InstanceProfile')
@@ -111,7 +119,17 @@ def remove_iam_groups(session, region, resource_arns: list[str]) -> None:
     for group_arn in resource_arns:
         group_name = group_arn.split('/')[-1]
         group = iam.Group(group_name)
-        group.delete()
+
+        for policy in group.attached_policies.all():
+            try:
+                policy.detach_role(RoleName=group_name)
+            except botocore.exceptions.ClientError:
+                print(
+                    f'Failed To Detach Group Policy ({policy.policy_name}) From {group_arn}.'
+                )
+                break
+        else:
+            group.delete()
 
 
 @register_query_function('IAM::Policy')
@@ -137,6 +155,9 @@ def remove_iam_policies(session, region, resource_arns: list[str]) -> None:
     iam = session.resource('iam')
 
     for policy_arn in resource_arns:
-        policy_name = policy_arn.split('/')[-1]
-        policy = iam.Policy(policy_name)
-        policy.delete()
+        policy = iam.Policy(policy_arn)
+        try:
+            policy.delete()
+        except botocore.exceptions.ClientError:
+            print(f'Failed To Delete Policy ({policy_arn}).')
+            continue
