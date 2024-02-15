@@ -1,8 +1,8 @@
 import time
 
-from utils.general import check_delete
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_paginate, boto3_tag_list_to_dict
+from utils.general import check_delete
 
 
 @register_query_function('ECS::Cluster')
@@ -44,19 +44,20 @@ def remove_ecs_clusters(session, region, resource_arns: list[str]) -> None:
         for service_arn in services:
             ecs.delete_service(cluster=cluster_arn, service=service_arn, force=True)
 
-        # Monitor service removal
-        while True:
-            print(f'Draining ECS Cluster (may take a few minutes): {cluster_arn}')
-            service_status = ecs.describe_services(
-                cluster=cluster_arn, services=services
-            )['services']
-            if [
-                service['serviceArn']
-                for service in service_status
-                if service['status'] in ['DRAINING']
-            ]:
-                time.sleep(5)
-            else:
-                break
+        if services:
+            # Monitor service removal
+            while True:
+                print(f'Draining ECS Cluster (may take a few minutes): {cluster_arn}')
+                service_status = ecs.describe_services(
+                    cluster=cluster_arn, services=services
+                )['services']
+                if [
+                    service['serviceArn']
+                    for service in service_status
+                    if service['status'] in ['DRAINING']
+                ]:
+                    time.sleep(5)
+                else:
+                    break
 
         ecs.delete_cluster(cluster=cluster_arn)
