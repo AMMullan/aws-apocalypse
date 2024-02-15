@@ -1,6 +1,6 @@
-from utils.general import check_delete
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_tag_list_to_dict
+from utils.general import check_delete
 
 
 def get_bucket_region(s3, bucket_name):
@@ -49,5 +49,6 @@ def remove_s3_buckets(session, region, resource_arns: list[str]) -> None:
     for bucket_arns in resource_arns:
         bucket_name = bucket_arns.split(':')[-1]
         bucket = s3.Bucket(bucket_name)
+        bucket.Policy().delete()
         bucket.object_versions.all().delete()
         bucket.delete()
