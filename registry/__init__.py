@@ -11,7 +11,7 @@ terminate_registry: dict[str, Callable[..., None]] = {}
 
 @dataclass
 class DeleteResponse:
-    success: list = field(default_factory=list)
+    successful: list = field(default_factory=list)
     failures: dict[str, list] = field(default_factory=lambda: defaultdict(list))
 
 
