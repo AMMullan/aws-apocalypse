@@ -97,7 +97,7 @@ def remove_iam_roles(session, region, resource_arns: list[str]) -> DeleteRespons
                 instance_profile.remove_role(RoleName=role.name)
 
             role.delete()
-            response.success.append(role_arn)
+            response.successful.append(role_arn)
         except botocore.exceptions.ClientError as e:
             error_code = e.response['Error']['Code']
             response.failures[error_code].append(role_arn)
@@ -142,7 +142,7 @@ def remove_iam_groups(session, region, resource_arns: list[str]) -> DeleteRespon
             for policy in group.attached_policies.all():
                 policy.detach_role(RoleName=group_name)
             group.delete()
-            response.success.append(group_arn)
+            response.successful.append(group_arn)
         except botocore.exceptions.ClientError as e:
             error_code = e.response['Error']['Code']
             response.failures[error_code].append(group_arn)
@@ -185,7 +185,7 @@ def remove_iam_policies(session, region, resource_arns: list[str]) -> DeleteResp
 
             # Delete Policy
             policy.delete()
-            response.success.append(policy_arn)
+            response.successful.append(policy_arn)
         except botocore.exceptions.ClientError as e:
             error_code = e.response['Error']['Code']
             response.failures[error_code].append(policy_arn)

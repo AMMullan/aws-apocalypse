@@ -1,3 +1,6 @@
+import botocore.exceptions
+
+from registry import DeleteResponse
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_paginate, boto3_tag_list_to_dict, get_account_id
 from utils.general import batch, check_delete
@@ -24,30 +27,22 @@ def query_ec2_images(session, region) -> list[str]:
 
 
 @register_terminate_function('EC2::Image')
-def remove_ec2_images(session, region, resource_arns: list[str]) -> None:
-    account_id = get_account_id(session)
+def remove_ec2_images(session, region, resource_arns: list[str]) -> DeleteResponse:
     ec2 = session.client('ec2', region_name=region)
 
-    image_ids = [image_arn.split('/')[-1] for image_arn in resource_arns]
-    image_detail = ec2.describe_images(ImageIds=image_ids)['Images']
+    response = DeleteResponse()
 
-    snapshot_ids: list[str] = []
-    for image in image_detail:
-        snapshot_ids.extend(
-            mapping['Ebs']['SnapshotId']
-            for mapping in image.get('BlockDeviceMappings', [])
-            if mapping.get('Ebs')
-        )
+    for image_arn in resource_arns:
+        image_id = image_arn.split('/')[-1]
 
-        image_id = image['ImageId']
-        ec2.deregister_image(ImageId=image_id)
+        try:
+            ec2.deregister_image(ImageId=image_id)
+            response.successful.append(image_arn)
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response['Error']['Code']
+            response.failures[error_code].append(image_arn)
 
-    # Remove AMI Snapshots after removal
-    snapshot_arns = [
-        f'arn:aws:ec2:{region}:{account_id}:image/{snapshot_id}'
-        for snapshot_id in snapshot_ids
-    ]
-    remove_ec2_snapshots(session, region, snapshot_arns)
+    return response
 
 
 @register_query_function('EC2::Instance')
@@ -78,9 +73,11 @@ def query_ec2_instances(session, region) -> list[str]:
 
 
 @register_terminate_function('EC2::Instance')
-def remove_ec2_instances(session, region, resource_arns: list[str]) -> None:
+def remove_ec2_instances(session, region, resource_arns: list[str]) -> DeleteResponse:
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
+
+    response = DeleteResponse()
 
     instance_ids = [instance_arn.split('/')[-1] for instance_arn in resource_arns]
     retained_volume_arns = [
