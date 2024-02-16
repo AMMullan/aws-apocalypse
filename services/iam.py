@@ -74,9 +74,11 @@ def remove_iam_roles(session, region, resource_arns: list[str]) -> None:
         for policy in role.attached_policies.all():
             try:
                 policy.detach_role(RoleName=role.name)
-            except botocore.exceptions.ClientError:
+            except botocore.exceptions.ClientError as e:
+                error_code = e.response['Error']['Code']
+
                 print(
-                    f'Failed To Detach Role Policy ({policy.policy_name}) From {role_arn}.'
+                    f'Failed To Detach Role Policy ({policy.policy_name}) From {role_arn} | {error_code}'
                 )
                 break
         else:
@@ -123,9 +125,10 @@ def remove_iam_groups(session, region, resource_arns: list[str]) -> None:
         for policy in group.attached_policies.all():
             try:
                 policy.detach_role(RoleName=group_name)
-            except botocore.exceptions.ClientError:
+            except botocore.exceptions.ClientError as e:
+                error_code = e.response['Error']['Code']
                 print(
-                    f'Failed To Detach Group Policy ({policy.policy_name}) From {group_arn}.'
+                    f'Failed To Detach Group Policy ({policy.policy_name}) From {group_arn} | {error_code}'
                 )
                 break
         else:
@@ -158,6 +161,6 @@ def remove_iam_policies(session, region, resource_arns: list[str]) -> None:
         policy = iam.Policy(policy_arn)
         try:
             policy.delete()
-        except botocore.exceptions.ClientError:
-            print(f'Failed To Delete Policy ({policy_arn}).')
-            continue
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response['Error']['Code']
+            print(f'Failed To Delete Policy ({policy_arn}) | {error_code}')
