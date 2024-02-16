@@ -1,7 +1,9 @@
-# Script to wipe AWS account - IMPORTANT, this script is _BRUTAL_ - use at your own risk
-# TODO:
-# - Do we need to batch up the terminate_instance API calls ??
-# - At the moment, we merge the services/resource types from CLI/Config - should that change?
+#
+# Script to wipe AWS accounts
+#
+# IMPORTANT, this script is _BRUTAL_ - use at your own risk
+#
+
 import signal
 import sys
 from typing import Optional
@@ -9,6 +11,7 @@ from typing import Optional
 import boto3
 import botocore
 from rich.console import Console
+from rich.table import Table
 
 from config import config
 from config.cli_args import parse_args
@@ -16,7 +19,7 @@ from config.config_environment import parse_environment_config
 from config.config_file import parse_config_file
 from registry import init_registry_resources, query_registry, terminate_registry
 from utils.aws import get_enabled_regions
-from view.output_handlers import JSONOutputHandler, OutputHandler, RichOutputHandler
+from view.output_handlers import JSONOutputHandler, RichOutputHandler
 
 
 # Define the signal handler
@@ -39,6 +42,10 @@ def signal_handler(sig, frame):
 
 # Set the signal handler for SIGINT
 signal.signal(signal.SIGINT, signal_handler)
+
+
+class UnauthorizedAccountException(Exception):
+    pass
 
 
 def confirm_deletion():
@@ -68,13 +75,13 @@ def check_account_compliance(session) -> None:
     account_id = session.client('sts').get_caller_identity()['Account']
 
     if account_id in config.BLACKLIST_ACCOUNTS:
-        raise SystemError('Cannot Operate On A Blacklisted Account')
+        raise UnauthorizedAccountException('Cannot Operate On A Blacklisted Account')
 
     if not config.WHITELIST_ACCOUNTS:
         return
 
     if account_id not in config.WHITELIST_ACCOUNTS:
-        raise SystemError('Can Only Operate On A Whitelisted Account')
+        raise UnauthorizedAccountException('Can Only Operate On A Whitelisted Account')
 
 
 def validate_and_filter_regions(enabled_regions) -> None:
@@ -168,6 +175,49 @@ def get_actionable_resource_types(registry_services: list[str]) -> list[str]:
     return actionable
 
 
+def show_failures(hard_failures, console):
+    table = Table(title='Failures (Access Denied)')
+    table.add_column('Region')
+    table.add_column('Resource Type')
+    table.add_column('Identifier')
+
+    for region, regional_resources in hard_failures.items():
+        for resource_type, resource_arns in regional_resources.items():
+            for arn in resource_arns:
+                table.add_row(region, resource_type, arn)
+
+    print()
+    console.print(table)
+
+
+def get_output_handler(output_format: Optional[str], session, console):
+    if output_format == 'json':
+        return JSONOutputHandler(session)
+    elif output_format == 'rich':
+        return RichOutputHandler(session, console)
+    else:
+        raise ValueError('Invalid Output Method')
+
+
+def process_resources(session, retrieved_resources):
+    hard_failures = {}
+    for region, resource_detail in retrieved_resources.items():
+        for resource_type, resource_arns in resource_detail.items():
+            response = terminate_registry[resource_type](session, region, resource_arns)
+            if not response:
+                continue
+            for arn in response.success:
+                retrieved_resources[region][resource_type].remove(arn)
+            for error_code, failed_resources in response.failures.items():
+                if error_code == 'AccessDenied':
+                    hard_failures.setdefault(region, {}).setdefault(
+                        resource_type, []
+                    ).extend(failed_resources)
+                    for arn in failed_resources:
+                        retrieved_resources[region][resource_type].remove(arn)
+    return hard_failures
+
+
 def main(script_args: Optional[dict] = None) -> None:
     """
     The main entry point of the AWS Apocalypse script.
@@ -183,9 +233,7 @@ def main(script_args: Optional[dict] = None) -> None:
         script_args = {}
 
     # Setup Rich Console
-    console = Console(
-        log_path=False, log_time=False, color_system='truecolor', highlight=False
-    )
+    console = Console(log_path=False, log_time=False, highlight=False)
 
     # Load Resources from the Registry
     init_registry_resources()
@@ -203,21 +251,19 @@ def main(script_args: Optional[dict] = None) -> None:
     parse_environment_config()
 
     # Establish a boto3 session
-    profile = script_args.get('profile')
     try:
-        session_args = {'profile_name': profile} if profile else {}
-        session = boto3.session.Session(**session_args)  # type: ignore
-    except botocore.exceptions.ProfileNotFound as e:  # type: ignore
-        raise SystemError(f'Profile "{args.get(profile)}" Not Found.') from e
+        session = boto3.session.Session(profile_name=script_args.get('profile'))
+    except botocore.exceptions.ProfileNotFound as e:
+        raise SystemError(f'Profile "{script_args.get("profile")}" Not Found.') from e
 
     # Check that we're allowed to operate in this account.
     try:
         check_account_compliance(session)
-    except SystemError:
-        raise
-    except Exception as e:
+    except botocore.exceptions.ClientError as e:
         print('No AWS Access | Please pass an AWS Profile')
         raise SystemExit from e
+    except UnauthorizedAccountException as e:
+        raise e
 
     # Clear the screen - TODO: Should we make this optional?
     if config.OUTPUT_FORMAT != 'json':
@@ -235,15 +281,7 @@ def main(script_args: Optional[dict] = None) -> None:
         print('No Valid Resources')
         return
 
-    handler: OutputHandler
-    match config.OUTPUT_FORMAT:
-        case 'json':
-            handler = JSONOutputHandler(session)
-        case 'rich':
-            handler = RichOutputHandler(session, console)
-        case _:
-            raise ValueError('Invalid Output Method')
-
+    handler = get_output_handler(config.OUTPUT_FORMAT, session, console)
     retrieved_resources = handler.retrieve_data(resource_types, config.REGIONS)
     if not retrieved_resources or config.COMMAND == 'inspect-aws':
         return
@@ -251,9 +289,10 @@ def main(script_args: Optional[dict] = None) -> None:
     if not confirm_deletion():
         return
 
-    for region, resource_detail in retrieved_resources.items():
-        for resource_type, resource_arns in resource_detail.items():
-            terminate_registry[resource_type](session, region, resource_arns)
+    hard_failures = process_resources(session, retrieved_resources)
+
+    if config.OUTPUT_FORMAT == 'rich':
+        show_failures(hard_failures, console)
 
 
 def lambda_handler(
