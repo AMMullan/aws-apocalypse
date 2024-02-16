@@ -39,7 +39,7 @@ def remove_acm_certificates(
     for cert_arn in resource_arns:
         try:
             acm.delete_certificate(CertificateArn=cert_arn)
-            response.success.append(cert_arn)
+            response.successful.append(cert_arn)
         except botocore.exceptions.ClientError as e:
             error_code = e.response['Error']['Code']
             response.failures[error_code].append(cert_arn)
