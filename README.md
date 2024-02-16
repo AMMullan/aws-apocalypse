@@ -23,6 +23,7 @@ Apocalypse supports inspecting and deleting the following AWS resources:
 | API Gateway             | v2 APIs (HTTPS)      | ApiGatewayV2::Api
 | Auto Scaling            | Auto Scaling Groups | AutoScaling::AutoScalingGroup
 | Auto Scaling            | Launch Configurations | AutoScaling::LaunchConfiguration
+| CloudFormation          | Stack | CloudFormation::Stack
 | CloudTrail              | Trails | CloudTrail::Trail
 | CloudWatch              | Dashboard | CloudWatch::Dashboard
 | CloudWatch              | Log groups | Logs::LogGroup
@@ -42,10 +43,12 @@ Apocalypse supports inspecting and deleting the following AWS resources:
 | EC2                     | VPCs |EC2::VPC
 | ECR                     | Repositories | ECR::Repository
 | ECS                     | Clusters | ECS::Cluster
+| ECS                     | Task Definitions | ECS::TaskDefinition
 | EFS                     | File systems | EFS::FileSystem
 | Elasticache             | Clusters | ElastiCache::CacheCluster
 | Elasticache             | Serverless Caches | ElastiCache::ServerlessCache
 | Elasticsearch           | Domain | Elasticsearch::Domain
+| Events                  | Rule | Events::Rule
 | FSx                     | File systems | FSx::FileSystem
 | IAM                     | Users | IAM::User
 | IAM                     | Roles | IAM::Role
@@ -65,6 +68,7 @@ Apocalypse supports inspecting and deleting the following AWS resources:
 | Secrets Manager         | Secrets | SecretsManager::Secret
 | SNS                     | Topics | SNS::Topic
 | SQS                     | Queues | SQS::Queue
+| StepFunctions           | State Machines | StepFunctions::StateMachine
 | Transfer Family         | Servers | Transfer::Server
 
 > **NOTE: AWS Backup Resource:** Resources (such as AMIs) created by AWS Backup are
