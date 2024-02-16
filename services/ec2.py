@@ -1,6 +1,6 @@
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_paginate, boto3_tag_list_to_dict, get_account_id
-from utils.general import check_delete
+from utils.general import batch, check_delete
 
 
 @register_query_function('EC2::Image')
@@ -79,7 +79,6 @@ def query_ec2_instances(session, region) -> list[str]:
 
 @register_terminate_function('EC2::Instance')
 def remove_ec2_instances(session, region, resource_arns: list[str]) -> None:
-    # TODO - Do we need to batch the terminate instances ??
     account_id = get_account_id(session)
     ec2 = session.client('ec2', region_name=region)
 
@@ -112,10 +111,12 @@ def remove_ec2_instances(session, region, resource_arns: list[str]) -> None:
             DisableApiStop={'Value': False},
         )
 
-    ec2.terminate_instances(InstanceIds=instance_ids)
-    ec2.get_waiter('instance_terminated').wait(
-        InstanceIds=instance_ids, WaiterConfig={'Delay': 10}
-    )
+    # We're doing this in smaller batches
+    for terminate_batch in batch(instance_ids, 50):
+        ec2.terminate_instances(InstanceIds=terminate_batch)
+        ec2.get_waiter('instance_terminated').wait(
+            InstanceIds=terminate_batch, WaiterConfig={'Delay': 10}
+        )
 
     remove_ec2_volumes(session, region, retained_volume_arns)
 
