@@ -1,0 +1,7 @@
+[tool.ruff]
+tab-size = 4
+
+[tool.ruff.format]
+quote-style = "single"
+line-ending = "lf"
+indent-style = "space"
