@@ -1,6 +1,8 @@
-from utils.general import check_delete
+import botocore.exceptions
+
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_paginate, get_account_id
+from utils.general import check_delete
 
 
 @register_query_function('SQS::Queue')
@@ -23,7 +25,7 @@ def query_sqs_queues(session, region) -> list[str]:
         queue_arn = f"arn:aws:sqs:{region}:{account_id}:{queue_url.split('/')[-1]}"
         try:
             queue_tags = sqs.list_queue_tags(QueueUrl=queue_url).get('Tags', {})
-        except Exception as e:
+        except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == 'AWS.SimpleQueueService.NonExistentQueue':
                 continue
             raise e
