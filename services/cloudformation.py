@@ -9,7 +9,14 @@ def query_cloudformation_stacks(session, region) -> list[str]:
 
     resource_arns = []
 
-    stacks = boto3_paginate(cf, 'list_stacks', search='StackSummaries[].StackName')
+    stacks = boto3_paginate(
+        cf,
+        'list_stacks',
+        StackStatusFilter=[
+            'CREATE_COMPLETE',
+        ],
+        search='StackSummaries[].StackName',
+    )
     for stack_name in stacks:
         stack = cf.describe_stacks(StackName=stack_name)['Stacks'][0]
         stack_tags = stack['Tags']
