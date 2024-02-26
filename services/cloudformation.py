@@ -1,3 +1,6 @@
+import botocore.exceptions
+
+from registry import DeleteResponse
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_paginate, boto3_tag_list_to_dict
 from utils.general import check_delete
@@ -29,9 +32,21 @@ def query_cloudformation_stacks(session, region) -> list[str]:
 
 
 @register_terminate_function('CloudFormation::Stack')
-def remove_cloudformation_stacks(session, region, resource_arns: list[str]) -> None:
+def remove_cloudformation_stacks(
+    session, region, resource_arns: list[str]
+) -> DeleteResponse:
     cf = session.client('cloudformation', region_name=region)
+
+    response = DeleteResponse()
 
     for stack_arn in resource_arns:
         stack_name = stack_arn.split('/')[-2]
-        cf.delete_stack(StackName=stack_name)
+
+        try:
+            cf.delete_stack(StackName=stack_name)
+            response.successful.append(stack_arn)
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response['Error']['Code']
+            response.failures[error_code].append(stack_arn)
+
+    return response

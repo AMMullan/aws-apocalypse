@@ -1,6 +1,9 @@
-from utils.general import check_delete
+import botocore.exceptions
+
+from registry import DeleteResponse
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_paginate, boto3_tag_list_to_dict
+from utils.general import check_delete
 
 
 @register_query_function('KMS::Key')
@@ -42,8 +45,10 @@ def query_kms_keys(session, region) -> list[str]:
 
 
 @register_terminate_function('KMS::Key')
-def remove_kms_keys(session, region, resource_arns: list[str]) -> None:
+def remove_kms_keys(session, region, resource_arns: list[str]) -> DeleteResponse:
     kms = session.client('kms', region_name=region)
+
+    response = DeleteResponse()
 
     for key_arn in resource_arns:
         key_id = key_arn.split('/')[-1]
@@ -56,7 +61,15 @@ def remove_kms_keys(session, region, resource_arns: list[str]) -> None:
                 search='Aliases[].AliasName',
             )
         )
-        for alias in aliases:
-            kms.delete_alias(AliasName=alias)
 
-        kms.schedule_key_deletion(KeyId=key_id, PendingWindowInDays=7)
+        try:
+            for alias in aliases:
+                kms.delete_alias(AliasName=alias)
+
+            kms.schedule_key_deletion(KeyId=key_id, PendingWindowInDays=7)
+            response.successful.append(key_arn)
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response['Error']['Code']
+            response.failures[error_code].append(key_arn)
+
+    return response

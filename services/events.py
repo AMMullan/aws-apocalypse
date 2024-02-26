@@ -1,5 +1,6 @@
 import botocore.exceptions
 
+from registry import DeleteResponse
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_paginate, boto3_tag_list_to_dict
 from utils.general import check_delete
@@ -22,8 +23,12 @@ def query_eventbridge_rule(session, region) -> list[str]:
 
 
 @register_terminate_function('Events::Rule')
-def remove_eventbridge_rule(session, region, resource_arns: list[str]) -> None:
+def remove_eventbridge_rule(
+    session, region, resource_arns: list[str]
+) -> DeleteResponse:
     events = session.client('events', region_name=region)
+
+    response = DeleteResponse()
 
     for rule_arn in resource_arns:
         rule_name = rule_arn.split('/')[-1]
@@ -34,6 +39,9 @@ def remove_eventbridge_rule(session, region, resource_arns: list[str]) -> None:
             ]:
                 events.remove_targets(Rule=rule_name, Ids=target_ids)
             events.delete_rule(Name=rule_name, Force=True)
+            response.successful.append(rule_arn)
         except botocore.exceptions.ClientError as e:
             error_code = e.response['Error']['Code']
-            print(f'Could Not Delete {rule_arn} - {error_code}')
+            response.failures[error_code].append(rule_arn)
+
+    return response

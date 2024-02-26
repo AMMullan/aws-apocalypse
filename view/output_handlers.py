@@ -20,7 +20,9 @@ class OutputHandler(ABC):
                 raise ValueError('Invalid Type: Console Expected')
 
     @abstractmethod
-    def retrieve_data(self, resource_types: list[str], regions: list[str]) -> None:
+    def retrieve_data(
+        self, resource_types: list[str], regions: list[str]
+    ) -> dict[str, dict[str, dict]]:
         pass
 
 
@@ -28,7 +30,7 @@ class JSONOutputHandler(OutputHandler):
     def retrieve_data(
         self, resource_types: list[str], regions: list[str] | set[str]
     ) -> dict[str, dict[str, dict]]:
-        resource_output = {}
+        resource_output: dict[str, dict[str, dict]] = {}
 
         for resource_type in resource_types:
             delete_function = query_registry[resource_type]
@@ -64,7 +66,7 @@ class RichOutputHandler(OutputHandler):
     def retrieve_data(
         self, resource_types: list[str], regions: list[str] | set[str]
     ) -> dict[str, dict[str, dict]]:
-        resource_output = {}
+        resource_output: dict[str, dict[str, dict]] = {}
 
         for resource_type in resource_types:
             retrieve_function = query_registry[resource_type]
@@ -85,7 +87,7 @@ class RichOutputHandler(OutputHandler):
 
                     self.console.print(
                         Text.assemble(
-                            (" INFO ", 'bold grey35 on green'),
+                            (' INFO ', 'bold grey35 on green'),
                             ' ',
                             (
                                 f'{resource_type} | Found {len(results or [])} resources in {region}',

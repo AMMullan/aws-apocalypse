@@ -1,6 +1,9 @@
-from utils.general import check_delete
+import botocore.exceptions
+
+from registry import DeleteResponse
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_tag_list_to_dict
+from utils.general import check_delete
 
 
 @register_query_function('Elasticsearch::Domain')
@@ -29,9 +32,21 @@ def query_opensearch_domains(session, region) -> list[str]:
 
 
 @register_terminate_function('Elasticsearch::Domain')
-def remove_opensearch_domains(session, region, resource_arns: list[str]) -> None:
+def remove_opensearch_domains(
+    session, region, resource_arns: list[str]
+) -> DeleteResponse:
     es = session.client('es', region_name=region)
+
+    response = DeleteResponse()
 
     for domain_arn in resource_arns:
         domain_name = domain_arn.split('/')
-        es.delete_elasticsearch_domain(DomainName=domain_name)
+
+        try:
+            es.delete_elasticsearch_domain(DomainName=domain_name)
+            response.successful.append(domain_arn)
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response['Error']['Code']
+            response.failures[error_code].append(domain_arn)
+
+    return response

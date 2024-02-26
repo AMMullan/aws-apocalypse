@@ -1,6 +1,9 @@
-from utils.general import check_delete
+import botocore.exceptions
+
+from registry import DeleteResponse
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_tag_list_to_dict
+from utils.general import check_delete
 
 
 @register_query_function('CloudTrail::Trail')
@@ -27,8 +30,19 @@ def query_cloudtrail_trails(session, region) -> list[str]:
 
 
 @register_terminate_function('CloudTrail::Trail')
-def remove_cloudtrail_trails(session, region, resource_arns: list[str]) -> None:
+def remove_cloudtrail_trails(
+    session, region, resource_arns: list[str]
+) -> DeleteResponse:
     cloudtrail = session.client('cloudtrail', region_name=region)
 
+    response = DeleteResponse()
+
     for trail_arn in resource_arns:
-        cloudtrail.delete_trail(Name=trail_arn.split('/')[-1])
+        try:
+            cloudtrail.delete_trail(Name=trail_arn.split('/')[-1])
+            response.successful.append(trail_arn)
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response['Error']['Code']
+            response.failures[error_code].append(trail_arn)
+
+    return response
