@@ -206,7 +206,7 @@ def process_resources(session, retrieved_resources):
             response = terminate_registry[resource_type](session, region, resource_arns)
             if not response:
                 continue
-            for arn in response.success:
+            for arn in response.successful:
                 retrieved_resources[region][resource_type].remove(arn)
             for error_code, failed_resources in response.failures.items():
                 if error_code == 'AccessDenied':
