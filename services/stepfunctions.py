@@ -1,3 +1,6 @@
+import botocore.exceptions
+
+from registry import DeleteResponse
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_paginate, boto3_tag_list_to_dict
 from utils.general import check_delete
@@ -26,8 +29,17 @@ def query_state_machines(session, region) -> list[str]:
 
 
 @register_terminate_function('StepFunctions::StateMachine')
-def remove_state_machines(session, region, resource_arns: list[str]) -> None:
+def remove_state_machines(session, region, resource_arns: list[str]) -> DeleteResponse:
     sfn = session.client('stepfunctions', region_name=region)
 
+    response = DeleteResponse()
+
     for machine_arn in resource_arns:
-        sfn.delete_state_machine(stateMachineArn=machine_arn)
+        try:
+            sfn.delete_state_machine(stateMachineArn=machine_arn)
+            response.successful.append(machine_arn)
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response['Error']['Code']
+            response.failures[error_code].append(machine_arn)
+
+    return response

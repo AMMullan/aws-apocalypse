@@ -1,5 +1,6 @@
 import botocore.exceptions
 
+from registry import DeleteResponse
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_paginate, get_account_id
 from utils.general import check_delete
@@ -37,14 +38,22 @@ def query_sqs_queues(session, region) -> list[str]:
 
 
 @register_terminate_function('SQS::Queue')
-def remove_sqs_queues(session, region, resource_arns: list[str]) -> None:
+def remove_sqs_queues(session, region, resource_arns: list[str]) -> DeleteResponse:
     sqs = session.client('sqs', region_name=region)
+
+    response = DeleteResponse()
 
     for queue_arn in resource_arns:
         account_id = queue_arn.split(':')[4]
         region = queue_arn.split(':')[3]
         queue_name = queue_arn.split(':')[-1]
-
         queue_url = f'https://sqs.{region}.amazonaws.com/{account_id}/{queue_name}'
 
-        sqs.delete_queue(QueueUrl=queue_url)
+        try:
+            sqs.delete_queue(QueueUrl=queue_url)
+            response.successful.append(queue_arn)
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response['Error']['Code']
+            response.failures[error_code].append(queue_arn)
+
+    return response

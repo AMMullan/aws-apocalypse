@@ -1,8 +1,11 @@
 import time
 
+import botocore.exceptions
+
+from registry import DeleteResponse
 from registry.decorator import register_query_function, register_terminate_function
 from utils.aws import boto3_paginate, boto3_tag_list_to_dict
-from utils.general import batch, check_delete
+from utils.general import check_delete
 
 
 @register_query_function('ECS::Cluster')
@@ -29,8 +32,10 @@ def query_ecs_clusters(session, region) -> list[str]:
 
 
 @register_terminate_function('ECS::Cluster')
-def remove_ecs_clusters(session, region, resource_arns: list[str]) -> None:
+def remove_ecs_clusters(session, region, resource_arns: list[str]) -> DeleteResponse:
     ecs = session.client('ecs', region_name=region)
+
+    response = DeleteResponse()
 
     for cluster_arn in resource_arns:
         services = list(
@@ -60,7 +65,14 @@ def remove_ecs_clusters(session, region, resource_arns: list[str]) -> None:
                 else:
                     break
 
-        ecs.delete_cluster(cluster=cluster_arn)
+        try:
+            ecs.delete_cluster(cluster=cluster_arn)
+            response.successful.append(cluster_arn)
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response['Error']['Code']
+            response.failures[error_code].append(cluster_arn)
+
+    return response
 
 
 @register_query_function('ECS::TaskDefinition')
@@ -86,12 +98,23 @@ def query_ecs_task_definitions(session, region) -> list[str]:
 
 
 @register_terminate_function('ECS::TaskDefinition')
-def remove_ecs_task_definitions(session, region, resource_arns: list[str]) -> None:
+def remove_ecs_task_definitions(
+    session, region, resource_arns: list[str]
+) -> DeleteResponse:
     ecs = session.client('ecs', region_name=region)
-    for task_batch in batch(resource_arns, 10):
+
+    response = DeleteResponse()
+
+    for task_arn in resource_arns:
         # Deregister Task Definition First
-        for task in task_batch:
-            ecs.deregister_task_definition(taskDefinition=task)
+        ecs.deregister_task_definition(taskDefinition=task_arn)
 
         # Then Delete It
-        ecs.delete_task_definitions(taskDefinitions=task_batch)
+        try:
+            ecs.delete_task_definitions(taskDefinitions=[task_arn])
+            response.successful.append(task_arn)
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response['Error']['Code']
+            response.failures[error_code].append(task_arn)
+
+    return response
