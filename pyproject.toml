@@ -5,3 +5,8 @@ tab-size = 4
 quote-style = "single"
 line-ending = "lf"
 indent-style = "space"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:datetime.datetime.utcfromtimestamp\\(\\) is deprecated:DeprecationWarning",
+]
